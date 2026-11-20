@@ -67,6 +67,12 @@ open http://localhost:8080/scalar     # documentation de l'API via la passerelle
 
 Contrat des événements : [`contracts/asyncapi/souqly.yaml`](contracts/asyncapi/souqly.yaml).
 
+## Observer la plateforme (Grafana)
+
+F5 démarre aussi **Grafana** (lien « Grafana (tableaux de bord) » dans Aspire, http://localhost:3000, accès sans connexion en développement). Le tableau de bord **Souqly — Vue d'ensemble** s'ouvre par défaut : commandes par minute, taux d'échec, durée de la saga, messages en DLQ, latence et erreurs par service. Les alertes (Alerting › Alert rules, dossier Souqly) et le tableau de bord sont versionnés dans [`infra/grafana`](infra/grafana) ([ADR-014](docs/adr/ADR-014-observabilite-grafana.md)). Que faire quand une alerte sonne : [runbook](docs/operations/runbook.md).
+
+Pour voir la reprise après panne : arrêter `payment` dans Aspire (bouton ■), passer une commande (elle reste en `STOCK_RESERVED`), redémarrer `payment` (▶) : la commande passe à `CONFIRMED`.
+
 ## Comptes de démonstration
 
 Realm Keycloak `souqly` (console : http://localhost:8180, utilisateur `admin`). Mot de passe des comptes : `Souqly-Dev-2026!` (développement uniquement).

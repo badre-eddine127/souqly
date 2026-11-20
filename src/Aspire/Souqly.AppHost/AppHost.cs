@@ -68,6 +68,19 @@ var keycloak = useExistingInfrastructure ? null : builder.AddKeycloak("keycloak"
 
 const string Authority = "http://localhost:8180/realms/souqly";
 
+// Observabilité (sprint 4, US-19/20) : Grafana + Prometheus + Tempo + Loki dans une seule image.
+// Tableaux de bord et alertes chargés depuis infra/grafana (versionnés, non modifiables dans l'interface).
+var grafana = useExistingInfrastructure ? null : builder.AddContainer("grafana", "grafana/otel-lgtm", "0.41.1")
+    .WithHttpEndpoint(port: 3000, targetPort: 3000, name: "http")
+    .WithEndpoint(targetPort: 4317, name: "otlp", scheme: "http")
+    .WithBindMount("../../../infra/grafana/dashboards", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly", isReadOnly: true)
+    .WithBindMount("../../../infra/grafana/provisioning/dashboards.yaml", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly.yaml", isReadOnly: true)
+    .WithBindMount("../../../infra/grafana/provisioning/alerting", "/otel-lgtm/grafana/conf/provisioning/alerting", isReadOnly: true)
+    .WithEnvironment("GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly/souqly-overview.json")
+    .WithVolume("souqly-grafana-data", "/data")
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WithUrlForEndpoint("http", u => u.DisplayText = "Grafana (tableaux de bord)");
+
 var catalog = builder.AddProject<Projects.Souqly_Catalog_Api>("catalog")
     .WithReference(catalogDb)
     .WaitFor(catalogDb)
@@ -111,6 +124,15 @@ var notification = builder.AddProject<Projects.Souqly_Notification_Api>("notific
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health/ready");
 
+// Chaque service envoie aussi ses traces, métriques et logs à Grafana (en plus du tableau de bord Aspire).
+if (grafana is not null)
+{
+    foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification })
+    {
+        service.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
+    }
+}
+
 // Les services valident les jetons Keycloak : ils démarrent une fois Keycloak prêt.
 if (keycloak is not null)
 {
@@ -121,7 +143,7 @@ if (keycloak is not null)
 }
 
 // La passerelle est le seul point d'entrée : elle attend que les six services soient sains.
-builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
+var gateway = builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
     .WithEnvironment("ReverseProxy__Clusters__catalog__Destinations__d1__Address", catalog.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__inventory__Destinations__d1__Address", inventory.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__cart__Destinations__d1__Address", cart.GetEndpoint("http"))
@@ -138,8 +160,15 @@ builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
     .WithExternalHttpEndpoints()
     .WithUrlForEndpoint("http", url =>
     {
-        url.Url = url.Url.TrimEnd('/') + "/scalar";
+        // launchSettings (launchUrl) peut déjà avoir ajouté /scalar : ne pas le doubler (sinon /scalar/scalar).
+        var root = url.Url.TrimEnd('/');
+        url.Url = root.EndsWith("/scalar", StringComparison.OrdinalIgnoreCase) ? root : root + "/scalar";
         url.DisplayText = "Documentation de l'API (Scalar)";
     });
+
+if (grafana is not null)
+{
+    gateway.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
+}
 
 await builder.Build().RunAsync();

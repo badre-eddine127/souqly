@@ -384,6 +384,13 @@
     <tr><td>F5 et Compose</td><td>Kafka (KRaft, sans ZooKeeper) et Kafka UI ajoutés à l'AppHost Aspire et à Docker Compose.</td></tr>
   </table>
 
+  <figure>
+    <img src="img/s3-aspire-pc.png" alt="Tableau de bord Aspire avec Kafka">
+    <figcaption>Figure 17 — Vérifié sur le PC le 20/11/2026 : F5 démarre les 12 ressources, dont Kafka (confluent-local 8.2) et Kafka UI ; les six services et la passerelle sont « Running ».</figcaption>
+  </figure>
+</section>
+
+<section class="task">
   <div class="note"><b>Limite de l'environnement de travail.</b> Docker et les sites Apache ne sont pas accessibles depuis l'espace de développement utilisé pour ce rapport : les tests y tournent avec un broker en mémoire qui imite Kafka (groupes, ordre, relivraisons). Les mêmes scénarios s'exécutent sur un vrai Kafka (Testcontainers) dans la CI GitHub, et sur le PC avec F5.</div>
 </section>
 
@@ -393,7 +400,7 @@
   <p><b>Objectif.</b> Mener chaque commande jusqu'à CONFIRMED ou REJECTED à travers trois bases différentes, avec une compensation pour chaque étape qui peut être défaite (ADR-005).</p>
   <figure>
     <img src="img/s3-saga-sequence.png" alt="Diagramme de séquence de la saga">
-    <figcaption>Figure 17 — Saga orchestrée par Ordering : réservation du stock, paiement, confirmation ; en cas de refus de paiement, Inventory libère la réservation (compensation).</figcaption>
+    <figcaption>Figure 18 — Saga orchestrée par Ordering : réservation du stock, paiement, confirmation ; en cas de refus de paiement, Inventory libère la réservation (compensation).</figcaption>
   </figure>
 </section>
 
@@ -408,7 +415,7 @@
   </table>
   <figure>
     <img src="img/s3-event-chain.png" alt="Messages Kafka d'une commande">
-    <figcaption>Figure 18 — Les cinq messages d'une commande, publiés par trois services, dans l'ordre et avec le même identifiant de trace.</figcaption>
+    <figcaption>Figure 19 — Les cinq messages d'une commande, publiés par trois services, dans l'ordre et avec le même identifiant de trace.</figcaption>
   </figure>
   <div class="note"><b>Bug trouvé par les tests.</b> Notification formatait les montants avec la culture <code>fr-FR</code>, absente des images .NET en mode « invariant ». Les messages <code>OrderConfirmed</code> sont partis en DLQ après 3 essais (preuve que la DLQ fonctionne), et le test a échoué. Correction : format numérique écrit explicitement.</div>
 </section>
@@ -416,7 +423,7 @@
 <section class="task">
   <figure>
     <img src="img/s3-tests.png" alt="Tests de la saga">
-    <figcaption>Figure 19 — Les scénarios de la saga sur les quatre services réels : succès, rupture de stock, paiement refusé avec compensation, annulation avec remise en stock et remboursement, vente flash (20 clients pour 5 unités : 5 confirmées, 15 refusées, aucune survente), message reçu deux fois, message illisible, broker en panne.</figcaption>
+    <figcaption>Figure 20 — Les scénarios de la saga sur les quatre services réels : succès, rupture de stock, paiement refusé avec compensation, annulation avec remise en stock et remboursement, vente flash (20 clients pour 5 unités : 5 confirmées, 15 refusées, aucune survente), message reçu deux fois, message illisible, broker en panne.</figcaption>
   </figure>
   <h3>Documentation</h3>
   <ul>
@@ -430,6 +437,29 @@
     <tr><td>Services</td><td>6 microservices + passerelle ; infrastructure : PostgreSQL, Redis, Keycloak, Kafka — tout démarre avec F5</td></tr>
     <tr><td>Prochaine étape (Sprint 4)</td><td>Observabilité (Grafana, Prometheus, alertes), sécurisation de Kafka (SASL/ACL), déploiement Kubernetes, tests de charge.</td></tr>
   </table>
+</section>
+
+<!-- ======================= TÂCHE 10 ======================= -->
+<section class="task">
+  <h2>Tâche 10 — Observabilité : Grafana, métriques et alertes (Sprint 4, US-19/20) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Voir en continu la santé des commandes, être alerté quand plus de 2 % échouent, et savoir quoi faire (ADR-014).</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Grafana dans F5</td><td>Image <code>grafana/otel-lgtm</code> (Grafana, Prometheus, Tempo, Loki, collecteur OpenTelemetry) ajoutée à l'AppHost et à Compose (profil <code>observability</code>). Chaque service envoie traces, métriques et logs au tableau de bord Aspire <b>et</b> à Grafana.</td></tr>
+    <tr><td>Métriques métier</td><td>Commandes acceptées, issues de la saga (confirmée, refusée avec la raison, annulée), échecs techniques, durée de la saga (histogramme), messages traités, doublons ignorés, messages en DLQ, échecs d'envoi au broker.</td></tr>
+    <tr><td>Tableau de bord versionné</td><td><code>infra/grafana/dashboards/souqly-overview.json</code> : 12 panneaux (commandes/min, taux d'échec, saga p95, DLQ, latence p95 et erreurs 5xx par service). Non modifiable dans l'interface : la source de vérité est Git.</td></tr>
+    <tr><td>Alertes versionnées (US-20)</td><td>« Échecs de commande &gt; 2 % » pendant 5 min (critique) et « Message de saga en DLQ » (avertissement), avec lien vers le runbook. Un refus métier (rupture, paiement refusé) n'est pas un échec technique et n'alerte pas.</td></tr>
+    <tr><td>Runbook et post-mortem</td><td><code>docs/operations/runbook.md</code> : alertes, Payment arrêté, Kafka arrêté, Keycloak arrêté, requêtes utiles ; modèle de post-mortem.</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/s4-payment-restart.png" alt="Panne puis reprise de Payment">
+    <figcaption>Figure 21 — Preuve demandée par le cahier des charges : Payment est arrêté, la commande attend en STOCK_RESERVED (rien n'est perdu), puis passe à CONFIRMED dès que Payment redémarre.</figcaption>
+  </figure>
+  <div class="note"><b>Vérifications faites ici.</b> Les 14 requêtes PromQL du tableau de bord et des alertes ont été validées par un analyseur ; un test vérifie que les compteurs lus par l'alerte sont bien émis. Grafana lui-même ne peut pas tourner dans cet espace de travail (pas de Docker) : la capture du tableau de bord sera faite sur le PC.</div>
+  <div class="note"><b>Bug corrigé.</b> Le lien « Documentation de l'API » d'Aspire ouvrait <code>/scalar/scalar</code> (chemin ajouté deux fois) : Scalar ne trouvait pas de document et la connexion n'était pas configurée. Trouvé lors du test manuel sur le PC, corrigé dans l'AppHost.</div>
 </section>
 
 <!--NEXT-TASKS-->

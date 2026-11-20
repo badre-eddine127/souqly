@@ -1,0 +1,78 @@
+# Règles d'alerte versionnées (US-20). Montées dans /otel-lgtm/grafana/conf/provisioning/alerting/.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: souqly-commandes
+    folder: Souqly
+    interval: 1m
+    rules:
+      - uid: souqly-order-failure-rate
+        title: "Échecs de commande > 2 %"
+        condition: C
+        for: 5m
+        noDataState: OK          # pas de trafic = pas d'alerte
+        execErrState: Error
+        labels:
+          severity: critical
+          service: ordering
+        annotations:
+          summary: "Plus de 2 % des commandes échouent pour une raison technique depuis 5 minutes."
+          description: "Taux actuel : {{ humanizePercentage $values.B.Value }}. Échecs = 5xx sur POST /orders (Catalog indisponible…) + messages de saga envoyés en DLQ."
+          runbook_url: "https://github.com/badre-eddine127/souqly/blob/main/docs/operations/runbook.md#alerte-echecs-de-commande"
+          __dashboardUid__: souqly-overview
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                ((sum(rate(souqly_orders_failed_total[5m])) or vector(0)) + (sum(rate(souqly_messaging_dead_letters_total[5m])) or vector(0)))
+                / clamp_min((sum(rate(souqly_orders_placed_total[5m])) or vector(0)) + (sum(rate(souqly_orders_failed_total[5m])) or vector(0)), 1e-9)
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.02] }
+      - uid: souqly-dead-letters
+        title: "Message de saga en DLQ"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "Au moins un message a été abandonné après 3 essais : une commande peut rester bloquée."
+          runbook_url: "https://github.com/badre-eddine127/souqly/blob/main/docs/operations/runbook.md#message-en-dlq"
+          __dashboardUid__: souqly-overview
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(souqly_messaging_dead_letters_total[10m])) or vector(0)
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }

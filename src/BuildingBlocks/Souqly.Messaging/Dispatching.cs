@@ -118,7 +118,8 @@ internal static partial class ResilientDispatch
         {
             try
             {
-                await dispatcher.DispatchAsync(topic, message, ct);
+                var outcome = await dispatcher.DispatchAsync(topic, message, ct);
+                MessagingTelemetry.RecordProcessed(options.ConsumerGroup, message.Type, outcome);
                 return;
             }
             catch (Exception e) when (!ct.IsCancellationRequested)
@@ -126,6 +127,7 @@ internal static partial class ResilientDispatch
                 if (attempt >= options.MaxAttempts)
                 {
                     LogDeadLetter(logger, e, message.Type, message.Id, attempt);
+                    MessagingTelemetry.RecordDeadLetter(options.ConsumerGroup, message.Type);
                     Activity.Current?.AddException(e);
                     await transport.PublishAsync(Topics.DeadLetter(topic), message with { TraceParent = Activity.Current?.Id ?? message.TraceParent }, ct);
                     return;

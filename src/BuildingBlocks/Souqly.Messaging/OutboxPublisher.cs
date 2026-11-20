@@ -73,6 +73,7 @@ internal sealed partial class OutboxPublisher<TDbContext>(
                 message.Attempts++;
                 message.LastError = e.Message.Length > 1000 ? e.Message[..1000] : e.Message;
                 LogPublishFailed(logger, e, message.Type, message.Id);
+                MessagingTelemetry.RecordPublishFailure(message.Topic);
                 break;   // on s'arrête pour garder l'ordre des événements d'une même commande
             }
         }

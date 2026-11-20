@@ -71,4 +71,35 @@ public sealed class InMemorySagaTests(SagaFixture platform, ITestOutputHelper ou
         chain.Select(m => m.TraceParent!.Split('-')[1]).Distinct().Count().ShouldBe(1);
         JsonDocument.Parse(chain[0].Payload).RootElement.GetProperty("total").GetDecimal().ShouldBe(300m);
     }
+
+    [Fact]
+    public async Task Payment_arrete_la_commande_attend_puis_est_confirmee_au_redemarrage_sans_perte()
+    {
+        var tapis = await NewProductAsync("vendor-fatima", "Tapis pendant la panne", 800m, stock: 3);
+        var customer = NewCustomer();
+        await Platform.StopPaymentAsync();   // panne de Payment
+        var restarted = false;
+        try
+        {
+            var order = await PlaceAsync(customer, (tapis, 1));   // le client peut toujours commander (202)
+
+            await WaitForStatusAsync(customer, order.Id, "STOCK_RESERVED");
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            (await WaitForStatusAsync(customer, order.Id, "STOCK_RESERVED", "CONFIRMED")).Status.ShouldBe("STOCK_RESERVED");   // bloquée, pas perdue
+            output.WriteLine($"Payment arrêté : commande {order.Id} en STOCK_RESERVED");
+
+            Platform.StartPayment();   // reprise
+            restarted = true;
+            var final = await WaitForStatusAsync(customer, order.Id, "CONFIRMED");
+            output.WriteLine($"Payment redémarré : commande {final.Id} {final.Status}");
+            (await PaymentAsync(customer, order.Id)).Status.ShouldBe("CAPTURED");
+        }
+        finally
+        {
+            if (!restarted)
+            {
+                Platform.StartPayment();
+            }
+        }
+    }
 }

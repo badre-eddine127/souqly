@@ -1,7 +1,8 @@
 # Souqly — environnement local complet.
 #   cp infra/compose/.env.example infra/compose/.env
 #   docker compose -f infra/compose/compose.yaml up -d --build --wait
-# Socle : bases, Keycloak, Kafka (KRaft), services, passerelle. L'observabilité (sprint 4) aura son profil.
+# Socle : bases, Keycloak, Kafka (KRaft), services, passerelle.
+# Observabilité (profil « observability ») : docker compose --profile observability up -d  →  Grafana http://localhost:3000
 # Kafka UI (profil « tools ») : docker compose --profile tools up -d  →  http://localhost:8085
 # Comptes de démonstration (realm souqly) : sara (client), fatima et karim (vendeurs), admin-souqly.
 name: souqly
@@ -15,6 +16,8 @@ x-service-defaults: &service-defaults
     Authentication__Authority: http://localhost:8180/realms/souqly
     Authentication__MetadataAddress: http://keycloak:8080/realms/souqly/.well-known/openid-configuration
     ConnectionStrings__Kafka: kafka:9092
+    # Traces, métriques, logs → Grafana (profil observability ; sans lui, rien n'est envoyé avec succès, sans effet sur le service)
+    Telemetry__GrafanaEndpoint: http://grafana:4317
     Database__MigrateOnStartup: "true"
   healthcheck:
     interval: 10s
@@ -111,6 +114,20 @@ services:
       start_period: 30s
       retries: 10
     mem_limit: 1g
+
+  grafana:
+    image: grafana/otel-lgtm:0.41.1   # Grafana + Prometheus + Tempo + Loki + collecteur OpenTelemetry
+    profiles: ["observability"]
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana/conf/provisioning/dashboards/souqly/souqly-overview.json
+    volumes:
+      - ../grafana/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/souqly:ro
+      - ../grafana/provisioning/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/souqly.yaml:ro
+      - ../grafana/provisioning/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+      - grafana-data:/data
+    ports:
+      - "3000:3000"
+    mem_limit: 1500m
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
@@ -252,3 +269,4 @@ volumes:
   redis-data:
   keycloak-data:
   kafka-data:
+  grafana-data:

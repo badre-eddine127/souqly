@@ -34,7 +34,17 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
             throw new BusinessRuleException("duplicate-product", "Un même produit ne peut apparaître qu'une fois par commande.");
         }
 
-        var prices = (await catalog.GetPricesAsync(wanted.Select(l => l.ProductId).ToList(), ct)).ToDictionary(p => p.ProductId);
+        Dictionary<long, CatalogPrice> prices;
+        try
+        {
+            prices = (await catalog.GetPricesAsync(wanted.Select(l => l.ProductId).ToList(), ct)).ToDictionary(p => p.ProductId);
+        }
+        catch (DependencyUnavailableException e)
+        {
+            OrderMetrics.RecordFailed(e.Dependency.ToLowerInvariant() + "_unavailable");   // compté par l'alerte US-20
+            throw;
+        }
+
         var unavailable = wanted.Where(l => !prices.TryGetValue(l.ProductId, out var p) || !p.Purchasable).Select(l => l.ProductId).ToList();
         if (unavailable.Count > 0)
         {
@@ -71,6 +81,7 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
                    ?? throw new ConflictException("Requête concurrente avec la même clé d'idempotence.");
         }
 
+        OrderMetrics.RecordPlaced();
         return new PlaceOrderResult(OrderResponse.From(order), Replayed: false);
     }
 
@@ -102,6 +113,7 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
         // Compensations : Inventory rend le stock, Payment rembourse si le paiement était passé.
         events.Publish(Topics.OrderingEvents, order.Id.ToString(), new OrderCancelled(order.Id, order.CustomerId, "CUSTOMER_REQUEST"));
         await orders.SaveChangesAsync(ct);
+        OrderMetrics.RecordOutcome(order, clock.GetUtcNow());
         return OrderResponse.From(order);
     }
 

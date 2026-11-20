@@ -1,0 +1,11 @@
+# Monté dans /otel-lgtm/grafana/conf/provisioning/dashboards/souqly.yaml (image grafana/otel-lgtm).
+apiVersion: 1
+providers:
+  - name: Souqly
+    folder: Souqly
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false   # source de vérité : le dépôt Git
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/souqly
+      foldersFromFilesStructure: false

@@ -61,8 +61,8 @@ public class SagaFixture : IAsyncLifetime
         }));
         InventoryHost = Track(new ServiceHost<inventory::Program>(this, "InventoryDb", await _postgres.CreateDatabaseAsync("inventory"),
             s => s["Inventory:ExpiryWorkerEnabled"] = "false"));
-        PaymentHost = Track(new ServiceHost<payment::Program>(this, "PaymentDb", await _postgres.CreateDatabaseAsync("payment"),
-            s => s["Payment:DeclineAbove"] = "10000"));
+        _paymentDb = await _postgres.CreateDatabaseAsync("payment");
+        PaymentHost = Track(NewPaymentHost());
         NotificationHost = Track(new ServiceHost<notification::Program>(this, "NotificationDb", await _postgres.CreateDatabaseAsync("notification"), _ => { }));
 
         // CreateClient démarre l'hôte (migrations, consommateurs, publieur d'outbox).
@@ -71,6 +71,25 @@ public class SagaFixture : IAsyncLifetime
         Payment = PaymentHost.CreateClient();
         Notification = NotificationHost.CreateClient();
     }
+
+    private string _paymentDb = string.Empty;
+
+    /// <summary>Arrête le service Payment (panne simulée) ; ses messages s'accumulent dans le broker.</summary>
+    internal async Task StopPaymentAsync()
+    {
+        _hosts.Remove(PaymentHost);
+        await PaymentHost.DisposeAsync();
+    }
+
+    /// <summary>Redémarre Payment sur la même base : il reprend les messages en attente.</summary>
+    internal void StartPayment()
+    {
+        PaymentHost = Track(NewPaymentHost());
+        Payment = PaymentHost.CreateClient();
+    }
+
+    private ServiceHost<payment::Program> NewPaymentHost() =>
+        new(this, "PaymentDb", _paymentDb, s => s["Payment:DeclineAbove"] = "10000");
 
     public virtual async Task DisposeAsync()
     {

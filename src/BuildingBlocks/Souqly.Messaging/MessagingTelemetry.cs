@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace Souqly.Messaging;
 
@@ -12,6 +13,22 @@ public static class MessagingTelemetry
     public const string SourceName = "Souqly.Messaging";
 
     private static readonly ActivitySource Source = new(SourceName);
+
+    private static readonly Meter Meter = new(SourceName, "1.0");
+
+    // souqly_messaging_processed_total{group, type, outcome} et souqly_messaging_dead_letters_total{group, type}
+    private static readonly Counter<long> Processed = Meter.CreateCounter<long>("souqly.messaging.processed", "{message}", "Messages traités par consommateur");
+
+    private static readonly Counter<long> DeadLetters = Meter.CreateCounter<long>("souqly.messaging.dead_letters", "{message}", "Messages envoyés en DLQ après tous les essais");
+
+    private static readonly Counter<long> PublishFailures = Meter.CreateCounter<long>("souqly.messaging.publish_failures", "{message}", "Envois au broker en échec (le message reste dans l'outbox)");
+
+    internal static void RecordProcessed(string group, string type, DispatchOutcome outcome) =>
+        Processed.Add(1, new("group", group), new("type", type), new("outcome", outcome.ToString().ToLowerInvariant()));
+
+    internal static void RecordDeadLetter(string group, string type) => DeadLetters.Add(1, new("group", group), new("type", type));
+
+    internal static void RecordPublishFailure(string topic) => PublishFailures.Add(1, new KeyValuePair<string, object?>("topic", topic));
 
     internal static Activity? StartPublish(string topic, MessageEnvelope message)
     {

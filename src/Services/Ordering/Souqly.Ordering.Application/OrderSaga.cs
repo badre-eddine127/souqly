@@ -66,6 +66,10 @@ public sealed partial class OrderSaga(IOrderRepository orders, IEventPublisher e
 
         step(order);
         await orders.SaveChangesAsync(ct);
+        if (order.Status is OrderStatus.Confirmed or OrderStatus.Rejected)
+        {
+            OrderMetrics.RecordOutcome(order, clock.GetUtcNow());
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Réponse de saga pour une commande inconnue {OrderId}")]
