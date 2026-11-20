@@ -16,9 +16,9 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
@@ -40,20 +40,15 @@ jobs:
 
       - name: Rapport de couverture
         if: always()
-        uses: danielpalme/ReportGenerator-GitHub-Action@5
-        with:
-          reports: TestResults/**/coverage.cobertura.xml
-          targetdir: coverage
-          reporttypes: MarkdownSummaryGithub;Cobertura
-
-      - name: Résumé de couverture
-        if: always()
-        run: cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage -reporttypes:"MarkdownSummaryGithub;Cobertura"
+          cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
