@@ -109,6 +109,30 @@ public abstract class SagaScenarios(SagaFixture platform)
     }
 
     [Fact]
+    public async Task US13_US14_de_la_commande_a_la_livraison_chaque_vendeur_expedie_et_le_client_est_prevenu()
+    {
+        var tapis = await NewProductAsync("vendor-fatima", "Tapis à livrer", 900m, stock: 3);
+        var argan = await NewProductAsync("vendor-karim", "Argan à livrer", 120m, stock: 3);
+        var customer = NewCustomer();
+        var order = await PlaceAsync(customer, (tapis, 1), (argan, 1));
+        await WaitForStatusAsync(customer, order.Id, "CONFIRMED");
+
+        (await OrderingVendorAs("vendor-fatima").PostAsJsonAsync($"/api/v1/vendor/orders/{order.Id}/shipment", new { carrier = "AMANA", trackingNumber = "AM123456789MA" }))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await OrderingVendorAs("vendor-karim").PostAsJsonAsync($"/api/v1/vendor/orders/{order.Id}/shipment", new { carrier = "CTM", trackingNumber = "CTM-998877" }))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await WaitForStatusAsync(customer, order.Id, "SHIPPED")).Status.ShouldBe("SHIPPED");
+
+        var shipped = await EventuallyAsync(() => NotificationsAsync(customer), n => n.Count(x => x.Kind == "ORDER_SHIPPED") == 2);
+        shipped.ShouldContain(n => n.Body.Contains("AM123456789MA") && n.Body.Contains("Amana"));
+
+        await OrderingVendorAs("vendor-fatima").PostAsync($"/api/v1/vendor/orders/{order.Id}/delivery", null);
+        await OrderingVendorAs("vendor-karim").PostAsync($"/api/v1/vendor/orders/{order.Id}/delivery", null);
+        await WaitForStatusAsync(customer, order.Id, "DELIVERED");
+        await EventuallyAsync(() => NotificationsAsync(customer), n => n.Any(x => x.Kind == "ORDER_DELIVERED" && x.Body.Contains("entièrement livrée")));
+    }
+
+    [Fact]
     public async Task Vente_flash_20_clients_pour_5_unites_5_commandes_confirmees_15_rejetees_zero_survente()
     {
         var lampe = await NewProductAsync("vendor-karim", "Lampe en cuivre", 350m, stock: 5);
@@ -168,6 +192,8 @@ public abstract class SagaScenarios(SagaFixture platform)
         (await Platform.NotificationHost.CreateClient().WithToken(TestJwt.Token(user, "CUSTOMER", "VENDOR")).GetFromJsonAsync<PageView<NotificationView>>("/api/v1/notifications?size=100", Json))!.Content;
 
     protected HttpClient OrderingAs(string customer) => Platform.OrderingHost.CreateClient().WithToken(TestJwt.Token(customer, "CUSTOMER"));
+
+    protected HttpClient OrderingVendorAs(string vendor) => Platform.OrderingHost.CreateClient().WithToken(TestJwt.Token(vendor, "VENDOR"));
 
     protected HttpClient InventoryAs(string vendor) => Platform.InventoryHost.CreateClient().WithToken(TestJwt.Token(vendor, "VENDOR"));
 

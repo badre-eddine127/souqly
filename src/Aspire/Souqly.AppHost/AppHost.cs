@@ -76,6 +76,7 @@ var grafana = useExistingInfrastructure ? null : builder.AddContainer("grafana",
     .WithBindMount("../../../infra/grafana/dashboards", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly", isReadOnly: true)
     .WithBindMount("../../../infra/grafana/provisioning/dashboards.yaml", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly.yaml", isReadOnly: true)
     .WithBindMount("../../../infra/grafana/provisioning/alerting", "/otel-lgtm/grafana/conf/provisioning/alerting", isReadOnly: true)
+    .WithEnvironment("ENABLE_LOGS_GRAFANA", "true")   // erreurs de Grafana visibles dans les logs Aspire
     .WithEnvironment("GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH", "/otel-lgtm/grafana/conf/provisioning/dashboards/souqly/souqly-overview.json")
     .WithVolume("souqly-grafana-data", "/data")
     .WithLifetime(ContainerLifetime.Persistent)

@@ -38,6 +38,17 @@ internal static class OrderingEndpoints
             .WithSummary("Commandes contenant mes produits (seulement mes lignes)")
             .RequireAuthorization(Policies.Vendor);
 
+        var vendor = app.MapGroup("/api/v1/vendor/orders/{id:guid}").WithTags("Espace vendeur").RequireAuthorization(Policies.Vendor);
+
+        vendor.MapPost("/shipment", async (Guid id, ShipRequest request, HttpContext http, OrderService service, CancellationToken ct) =>
+                TypedResults.Ok(await service.ShipAsync(id, http.CurrentUser(), request, ct)))
+            .WithSummary("Expédier mon colis : transporteur + numéro de suivi (US-13)")
+            .Validate<ShipRequest>();
+
+        vendor.MapPost("/delivery", async (Guid id, HttpContext http, OrderService service, CancellationToken ct) =>
+                TypedResults.Ok(await service.DeliverAsync(id, http.CurrentUser(), ct)))
+            .WithSummary("Confirmer la livraison de mon colis");
+
         return app;
     }
 

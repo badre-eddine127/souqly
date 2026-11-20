@@ -3,9 +3,11 @@ namespace Souqly.Ordering.Domain;
 /// <summary>
 /// Commande d'un client. L'agrégat protège ses règles :
 /// RG-02 prix figés à la création, RG-04 limites (1 à 20 lignes, 1 à 10 unités, 50 000 MAD max),
-/// RG-06 annulation impossible après expédition, et une machine à états stricte :
+/// RG-06 annulation impossible dès qu'un colis est parti, et une machine à états stricte :
 /// PENDING → STOCK_RESERVED → CONFIRMED → SHIPPED → DELIVERED, avec PENDING → REJECTED
 /// et PENDING / STOCK_RESERVED / CONFIRMED → CANCELLED. Toute autre transition est refusée (409).
+/// Expédition (US-13/14) : chaque vendeur expédie SON colis (ses lignes) ; la commande passe à SHIPPED quand
+/// tous les colis sont partis, puis à DELIVERED quand tous sont livrés.
 /// </summary>
 public sealed class Order
 {
@@ -14,7 +16,11 @@ public sealed class Order
     public const decimal MaxTotal = 50_000m;
     public const string Currency = "MAD";
 
+    /// <summary>Transporteurs acceptés (Maroc).</summary>
+    public static readonly IReadOnlySet<string> Carriers = new HashSet<string>(StringComparer.Ordinal) { "AMANA", "CTM", "ARAMEX", "DHL" };
+
     private readonly List<OrderLine> _lines = [];
+    private readonly List<Shipment> _shipments = [];
 
     private Order()
     {
@@ -34,6 +40,12 @@ public sealed class Order
     public uint Version { get; private set; }
 
     public IReadOnlyCollection<OrderLine> Lines => _lines;
+
+    /// <summary>Colis : un par vendeur, créé quand le vendeur expédie.</summary>
+    public IReadOnlyCollection<Shipment> Shipments => _shipments;
+
+    /// <summary>Vendeurs ayant au moins une ligne dans la commande.</summary>
+    public IReadOnlyList<string> Vendors => _lines.Select(l => l.VendorId).Distinct().Order(StringComparer.Ordinal).ToList();
 
     /// <summary>Crée une commande en attente à partir de l'instantané de prix du catalogue (jamais du prix envoyé par le client).</summary>
     public static Order Place(string customerId, IReadOnlyList<OrderLine> lines, DateTimeOffset now)
@@ -93,13 +105,69 @@ public sealed class Order
     /// <summary>Stock insuffisant (depuis PENDING) ou paiement refusé (depuis STOCK_RESERVED).</summary>
     public void Reject(string reason, DateTimeOffset now) => Move(OrderStatus.Rejected, reason, now, OrderStatus.Pending, OrderStatus.StockReserved);
 
-    public void Ship(DateTimeOffset now) => Move(OrderStatus.Shipped, null, now, OrderStatus.Confirmed);
+    /// <summary>
+    /// US-13 : le vendeur expédie ses lignes avec un transporteur et un numéro de suivi.
+    /// Renvoie vrai quand ce colis était le dernier : la commande passe alors à SHIPPED.
+    /// </summary>
+    public bool ShipFor(string vendorId, string carrier, string trackingNumber, DateTimeOffset now)
+    {
+        if (Status != OrderStatus.Confirmed)
+        {
+            throw new IllegalOrderTransitionException(Id, Status, OrderStatus.Shipped);
+        }
 
-    public void Deliver(DateTimeOffset now) => Move(OrderStatus.Delivered, null, now, OrderStatus.Shipped);
+        if (!_lines.Any(l => l.VendorId == vendorId))
+        {
+            throw new OrderRuleException("not-your-order", "Cette commande ne contient aucun de vos produits.");
+        }
 
-    /// <summary>US-08 / RG-06 : annulation possible jusqu'à l'expédition (exclue).</summary>
-    public void Cancel(string reason, DateTimeOffset now) =>
+        if (_shipments.Any(s => s.VendorId == vendorId))
+        {
+            throw new OrderRuleException("already-shipped", "Votre colis pour cette commande est déjà expédié.");
+        }
+
+        _shipments.Add(new Shipment(vendorId, carrier, trackingNumber, now));
+        UpdatedAt = now;
+        if (Vendors.All(v => _shipments.Any(s => s.VendorId == v)))
+        {
+            Move(OrderStatus.Shipped, null, now, OrderStatus.Confirmed);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Le colis du vendeur est livré ; quand tous le sont, la commande passe à DELIVERED (renvoie vrai).</summary>
+    public bool MarkDelivered(string vendorId, DateTimeOffset now)
+    {
+        var shipment = _shipments.FirstOrDefault(s => s.VendorId == vendorId)
+                       ?? throw new OrderRuleException("not-shipped", "Ce colis n'a pas encore été expédié.");
+        if (shipment.DeliveredAt is not null)
+        {
+            return false;   // déjà livré : rien à faire (idempotent)
+        }
+
+        shipment.MarkDelivered(now);
+        UpdatedAt = now;
+        if (Status == OrderStatus.Shipped && _shipments.All(s => s.DeliveredAt is not null))
+        {
+            Move(OrderStatus.Delivered, null, now, OrderStatus.Shipped);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>US-08 / RG-06 : annulation possible tant qu'aucun colis n'est parti.</summary>
+    public void Cancel(string reason, DateTimeOffset now)
+    {
+        if (_shipments.Count > 0)
+        {
+            throw new IllegalOrderTransitionException(Id, OrderStatus.Shipped, OrderStatus.Cancelled);
+        }
+
         Move(OrderStatus.Cancelled, reason, now, OrderStatus.Pending, OrderStatus.StockReserved, OrderStatus.Confirmed);
+    }
 
     private void Move(OrderStatus target, string? reason, DateTimeOffset now, params OrderStatus[] allowedFrom)
     {
@@ -162,3 +230,38 @@ public sealed class OrderRuleException(string code, string message) : Exception(
 
 public sealed class IllegalOrderTransitionException(Guid orderId, OrderStatus from, OrderStatus to)
     : Exception($"La commande {orderId} ne peut pas passer de {from} à {to}.");
+
+/// <summary>Colis d'un vendeur pour une commande (US-13, US-14).</summary>
+public sealed class Shipment
+{
+    private Shipment()
+    {
+        VendorId = Carrier = TrackingNumber = string.Empty;
+    }
+
+    internal Shipment(string vendorId, string carrier, string trackingNumber, DateTimeOffset now)
+    {
+        if (!Order.Carriers.Contains(carrier))
+        {
+            throw new OrderRuleException("unknown-carrier", $"Transporteur inconnu : {carrier}. Acceptés : {string.Join(", ", Order.Carriers.Order(StringComparer.Ordinal))}.");
+        }
+
+        if (trackingNumber.Length is < 6 or > 30 || !trackingNumber.All(c => char.IsAsciiLetterUpper(c) || char.IsAsciiDigit(c) || c == '-'))
+        {
+            throw new OrderRuleException("invalid-tracking", "Le numéro de suivi contient de 6 à 30 caractères : majuscules, chiffres ou tirets.");
+        }
+
+        VendorId = vendorId;
+        Carrier = carrier;
+        TrackingNumber = trackingNumber;
+        ShippedAt = now;
+    }
+
+    public string VendorId { get; private set; }
+    public string Carrier { get; private set; }
+    public string TrackingNumber { get; private set; }
+    public DateTimeOffset ShippedAt { get; private set; }
+    public DateTimeOffset? DeliveredAt { get; private set; }
+
+    internal void MarkDelivered(DateTimeOffset now) => DeliveredAt = now;
+}

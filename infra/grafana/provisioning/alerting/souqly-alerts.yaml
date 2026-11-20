@@ -3,7 +3,7 @@ apiVersion: 1
 groups:
   - orgId: 1
     name: souqly-commandes
-    folder: Souqly
+    folder: Souqly — Alertes   # dossier distinct de celui des tableaux de bord (évite une création concurrente au démarrage)
     interval: 1m
     rules:
       - uid: souqly-order-failure-rate
@@ -19,7 +19,6 @@ groups:
           summary: "Plus de 2 % des commandes échouent pour une raison technique depuis 5 minutes."
           description: "Taux actuel : {{ humanizePercentage $values.B.Value }}. Échecs = 5xx sur POST /orders (Catalog indisponible…) + messages de saga envoyés en DLQ."
           runbook_url: "https://github.com/badre-eddine127/souqly/blob/main/docs/operations/runbook.md#alerte-echecs-de-commande"
-          __dashboardUid__: souqly-overview
         data:
           - refId: A
             relativeTimeRange: { from: 600, to: 0 }
@@ -31,16 +30,20 @@ groups:
                 ((sum(rate(souqly_orders_failed_total[5m])) or vector(0)) + (sum(rate(souqly_messaging_dead_letters_total[5m])) or vector(0)))
                 / clamp_min((sum(rate(souqly_orders_placed_total[5m])) or vector(0)) + (sum(rate(souqly_orders_failed_total[5m])) or vector(0)), 1e-9)
           - refId: B
+            relativeTimeRange: { from: 0, to: 0 }
             datasourceUid: __expr__
             model:
               refId: B
+              datasource: { type: __expr__, uid: __expr__ }
               type: reduce
               expression: A
               reducer: last
           - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
             datasourceUid: __expr__
             model:
               refId: C
+              datasource: { type: __expr__, uid: __expr__ }
               type: threshold
               expression: B
               conditions:
@@ -56,7 +59,6 @@ groups:
         annotations:
           summary: "Au moins un message a été abandonné après 3 essais : une commande peut rester bloquée."
           runbook_url: "https://github.com/badre-eddine127/souqly/blob/main/docs/operations/runbook.md#message-en-dlq"
-          __dashboardUid__: souqly-overview
         data:
           - refId: A
             relativeTimeRange: { from: 600, to: 0 }
@@ -66,12 +68,15 @@ groups:
               instant: true
               expr: sum(increase(souqly_messaging_dead_letters_total[10m])) or vector(0)
           - refId: B
+            relativeTimeRange: { from: 0, to: 0 }
             datasourceUid: __expr__
-            model: { refId: B, type: reduce, expression: A, reducer: last }
+            model: { refId: B, datasource: { type: __expr__, uid: __expr__ }, type: reduce, expression: A, reducer: last }
           - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
             datasourceUid: __expr__
             model:
               refId: C
+              datasource: { type: __expr__, uid: __expr__ }
               type: threshold
               expression: B
               conditions:

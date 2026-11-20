@@ -26,7 +26,9 @@ builder.AddSouqlyMessaging<NotificationDbContext>(m => m
     .Consume<OrderConfirmed, NotificationHandlers>(Topics.OrderingEvents)
     .Consume<OrderRejected, NotificationHandlers>(Topics.OrderingEvents)
     .Consume<OrderCancelled, NotificationHandlers>(Topics.OrderingEvents)
-    .Consume<PaymentRefunded, NotificationHandlers>(Topics.PaymentEvents));
+    .Consume<PaymentRefunded, NotificationHandlers>(Topics.PaymentEvents)
+    .Consume<OrderShipped, NotificationHandlers>(Topics.OrderingEvents)
+    .Consume<OrderDelivered, NotificationHandlers>(Topics.OrderingEvents));
 builder.AddSouqlyOpenApi("Souqly Notification API");
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "notification-db", tags: ["ready"]);
 

@@ -267,7 +267,62 @@ namespace Souqly.Ordering.Infrastructure.Persistence.Migrations
                                 .HasConstraintName("fk_order_lines_orders_order_id");
                         });
 
+                    b.OwnsMany("Souqly.Ordering.Domain.Shipment", "Shipments", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasColumnName("id");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b1.Property<int>("Id"));
+
+                            b1.Property<string>("Carrier")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("carrier");
+
+                            b1.Property<DateTimeOffset?>("DeliveredAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("delivered_at");
+
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("order_id");
+
+                            b1.Property<DateTimeOffset>("ShippedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("shipped_at");
+
+                            b1.Property<string>("TrackingNumber")
+                                .IsRequired()
+                                .HasMaxLength(30)
+                                .HasColumnType("character varying(30)")
+                                .HasColumnName("tracking_number");
+
+                            b1.Property<string>("VendorId")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)")
+                                .HasColumnName("vendor_id");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_order_shipments");
+
+                            b1.HasIndex("OrderId", "VendorId")
+                                .IsUnique()
+                                .HasDatabaseName("ix_order_shipments_order_id_vendor_id");
+
+                            b1.ToTable("order_shipments", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId")
+                                .HasConstraintName("fk_order_shipments_orders_order_id");
+                        });
+
                     b.Navigation("Lines");
+
+                    b.Navigation("Shipments");
                 });
 #pragma warning restore 612, 618
         }

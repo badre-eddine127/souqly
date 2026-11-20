@@ -125,10 +125,83 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
         var views = items.Select(o =>
         {
             var lines = o.LinesOf(vendor.Id).OrderBy(l => l.ProductId).ToList();
+            var shipment = o.Shipments.FirstOrDefault(sh => sh.VendorId == vendor.Id);
             return new VendorOrderResponse(o.Id, OrderResponse.StatusName(o.Status), lines.Select(OrderLineResponse.From).ToList(),
-                MoneyDto.Of(lines.Sum(l => l.LineTotal)), o.CreatedAt);
+                MoneyDto.Of(lines.Sum(l => l.LineTotal)), o.CreatedAt, shipment is null ? null : ShipmentResponse.From(shipment));
         }).ToList();
         return PageResponse<VendorOrderResponse>.From(views, request, total);
+    }
+
+    /// <summary>US-13 : le vendeur expédie son colis ; la commande passe à SHIPPED quand tous les colis sont partis.</summary>
+    public async Task<VendorOrderResponse> ShipAsync(Guid id, CurrentUser vendor, ShipRequest request, CancellationToken ct)
+    {
+        var order = await FindForVendorAsync(id, vendor, ct);
+        var now = clock.GetUtcNow();
+        bool allShipped;
+        try
+        {
+            allShipped = order.ShipFor(vendor.Id, request.Carrier, request.TrackingNumber, now);
+        }
+        catch (IllegalOrderTransitionException e)
+        {
+            throw new ConflictException(e.Message);
+        }
+        catch (OrderRuleException e) when (e.Code == "already-shipped")
+        {
+            throw new ConflictException(e.Message);
+        }
+        catch (OrderRuleException e)
+        {
+            throw new BusinessRuleException(e.Code, e.Message);
+        }
+
+        events.Publish(Topics.OrderingEvents, order.Id.ToString(),
+            new OrderShipped(order.Id, order.CustomerId, vendor.Id, request.Carrier, request.TrackingNumber, allShipped));
+        await orders.SaveChangesAsync(ct);
+        return ToVendorView(order, vendor.Id);
+    }
+
+    /// <summary>Livraison confirmée (par le vendeur, en attendant le webhook du transporteur).</summary>
+    public async Task<VendorOrderResponse> DeliverAsync(Guid id, CurrentUser vendor, CancellationToken ct)
+    {
+        var order = await FindForVendorAsync(id, vendor, ct);
+        bool allDelivered;
+        try
+        {
+            if (order.Shipments.Any(sh => sh.VendorId == vendor.Id && sh.DeliveredAt is not null))
+            {
+                return ToVendorView(order, vendor.Id);   // déjà livré : réponse identique (idempotent)
+            }
+
+            allDelivered = order.MarkDelivered(vendor.Id, clock.GetUtcNow());
+        }
+        catch (OrderRuleException e)
+        {
+            throw new BusinessRuleException(e.Code, e.Message);
+        }
+
+        events.Publish(Topics.OrderingEvents, order.Id.ToString(), new OrderDelivered(order.Id, order.CustomerId, vendor.Id, allDelivered));
+        await orders.SaveChangesAsync(ct);
+        return ToVendorView(order, vendor.Id);
+    }
+
+    private async Task<Order> FindForVendorAsync(Guid id, CurrentUser vendor, CancellationToken ct)
+    {
+        var order = await orders.FindAsync(id, ct);
+        if (order is null || !order.LinesOf(vendor.Id).Any())
+        {
+            throw new NotFoundException("Commande", id);   // pas de fuite d'existence (RG-05/07)
+        }
+
+        return order;
+    }
+
+    private static VendorOrderResponse ToVendorView(Order o, string vendorId)
+    {
+        var lines = o.LinesOf(vendorId).OrderBy(l => l.ProductId).ToList();
+        var shipment = o.Shipments.FirstOrDefault(sh => sh.VendorId == vendorId);
+        return new VendorOrderResponse(o.Id, OrderResponse.StatusName(o.Status), lines.Select(OrderLineResponse.From).ToList(),
+            MoneyDto.Of(lines.Sum(l => l.LineTotal)), o.CreatedAt, shipment is null ? null : ShipmentResponse.From(shipment));
     }
 
     private async Task<PlaceOrderResult?> TryReplayAsync(CurrentUser customer, Guid key, string hash, CancellationToken ct)

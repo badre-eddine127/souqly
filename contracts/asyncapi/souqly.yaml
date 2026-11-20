@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Souqly — événements de la saga de commande
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Contrat des messages Kafka échangés par les services Souqly (ADR-004, ADR-005).
     - Clé de message : identifiant de commande (UUID) ; tous les événements d'une commande sont dans la même partition, donc ordonnés.
@@ -26,6 +26,8 @@ channels:
       OrderConfirmed: { $ref: '#/components/messages/OrderConfirmed' }
       OrderRejected: { $ref: '#/components/messages/OrderRejected' }
       OrderCancelled: { $ref: '#/components/messages/OrderCancelled' }
+      OrderShipped: { $ref: '#/components/messages/OrderShipped' }
+      OrderDelivered: { $ref: '#/components/messages/OrderDelivered' }
   stockEvents:
     address: souqly.inventory.stock-events.v1
     description: Publié par Inventory.
@@ -83,6 +85,8 @@ operations:
       - $ref: '#/channels/orderEvents/messages/OrderConfirmed'
       - $ref: '#/channels/orderEvents/messages/OrderRejected'
       - $ref: '#/channels/orderEvents/messages/OrderCancelled'
+      - $ref: '#/channels/orderEvents/messages/OrderShipped'
+      - $ref: '#/channels/orderEvents/messages/OrderDelivered'
   notification-receives-payments:
     action: receive
     channel: { $ref: '#/channels/paymentEvents' }
@@ -174,6 +178,30 @@ components:
           orderId: { $ref: '#/components/schemas/OrderId' }
           customerId: { type: string }
           reason: { type: string, enum: [CUSTOMER_REQUEST] }
+    OrderShipped:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: US-13 — un vendeur a expédié son colis ; allShipped = dernier colis, la commande passe à SHIPPED.
+      payload:
+        type: object
+        required: [orderId, customerId, vendorId, carrier, trackingNumber, allShipped]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          vendorId: { type: string }
+          carrier: { type: string, enum: [AMANA, CTM, ARAMEX, DHL] }
+          trackingNumber: { type: string, pattern: '^[A-Z0-9-]{6,30}$' }
+          allShipped: { type: boolean }
+    OrderDelivered:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Colis livré ; allDelivered = dernier colis, la commande passe à DELIVERED.
+      payload:
+        type: object
+        required: [orderId, customerId, vendorId, allDelivered]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          vendorId: { type: string }
+          allDelivered: { type: boolean }
     StockReserved:
       traits: [{ $ref: '#/components/messageTraits/souqly' }]
       payload:

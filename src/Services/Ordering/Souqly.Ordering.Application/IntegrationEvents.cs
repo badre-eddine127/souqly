@@ -25,6 +25,12 @@ public sealed record OrderRejected(Guid OrderId, string CustomerId, string Reaso
 /// <summary>Commande annulée par le client : Inventory rend le stock, Payment rembourse si besoin.</summary>
 public sealed record OrderCancelled(Guid OrderId, string CustomerId, string Reason);
 
+/// <summary>US-13 : un vendeur a expédié son colis. AllShipped = dernier colis → commande SHIPPED.</summary>
+public sealed record OrderShipped(Guid OrderId, string CustomerId, string VendorId, string Carrier, string TrackingNumber, bool AllShipped);
+
+/// <summary>Colis livré. AllDelivered = dernier colis → commande DELIVERED.</summary>
+public sealed record OrderDelivered(Guid OrderId, string CustomerId, string VendorId, bool AllDelivered);
+
 // ----- Consommés -----
 
 /// <summary>Inventory : toutes les lignes sont réservées (15 min).</summary>

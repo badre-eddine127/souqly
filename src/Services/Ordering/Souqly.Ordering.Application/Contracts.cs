@@ -30,12 +30,14 @@ public sealed record OrderResponse(
     IReadOnlyList<OrderLineResponse> Lines,
     MoneyDto Total,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<ShipmentResponse> Shipments)
 {
     public static OrderResponse From(Order o) => new(
         o.Id, o.CustomerId, StatusName(o.Status), o.StatusReason,
         o.Lines.OrderBy(l => l.ProductId).Select(OrderLineResponse.From).ToList(),
-        MoneyDto.Of(o.Total), o.CreatedAt, o.UpdatedAt);
+        MoneyDto.Of(o.Total), o.CreatedAt, o.UpdatedAt,
+        o.Shipments.OrderBy(sh => sh.ShippedAt).Select(ShipmentResponse.From).ToList());
 
     public static string StatusName(OrderStatus status) => status switch
     {
@@ -45,7 +47,28 @@ public sealed record OrderResponse(
 }
 
 /// <summary>Vue d'une commande par un vendeur : uniquement SES lignes (RG-05), jamais l'identité complète du client.</summary>
-public sealed record VendorOrderResponse(Guid OrderId, string Status, IReadOnlyList<OrderLineResponse> Lines, MoneyDto VendorTotal, DateTimeOffset CreatedAt);
+public sealed record VendorOrderResponse(Guid OrderId, string Status, IReadOnlyList<OrderLineResponse> Lines, MoneyDto VendorTotal, DateTimeOffset CreatedAt, ShipmentResponse? Shipment);
+
+/// <summary>US-14 : suivi d'un colis (un par vendeur).</summary>
+public sealed record ShipmentResponse(string VendorId, string Carrier, string TrackingNumber, string Status, DateTimeOffset ShippedAt, DateTimeOffset? DeliveredAt)
+{
+    public static ShipmentResponse From(Shipment s) =>
+        new(s.VendorId, s.Carrier, s.TrackingNumber, s.DeliveredAt is null ? "IN_TRANSIT" : "DELIVERED", s.ShippedAt, s.DeliveredAt);
+}
+
+/// <summary>US-13 : le vendeur déclare l'expédition de son colis.</summary>
+public sealed record ShipRequest(string Carrier, string TrackingNumber);
+
+public sealed class ShipRequestValidator : AbstractValidator<ShipRequest>
+{
+    public ShipRequestValidator()
+    {
+        RuleFor(r => r.Carrier).NotEmpty().Must(c => Order.Carriers.Contains(c))
+            .WithMessage($"Transporteur accepté : {string.Join(", ", Order.Carriers.Order(StringComparer.Ordinal))}.");
+        RuleFor(r => r.TrackingNumber).NotEmpty().Matches("^[A-Z0-9-]{6,30}$")
+            .WithMessage("Numéro de suivi : 6 à 30 caractères, majuscules, chiffres ou tirets.");
+    }
+}
 
 public sealed record PlaceOrderResult(OrderResponse Order, bool Replayed);
 

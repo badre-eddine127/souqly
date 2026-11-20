@@ -54,5 +54,19 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
             line.HasIndex(l => l.VendorId);
         });
         b.Navigation(o => o.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Un colis par vendeur et par commande (US-13).
+        b.OwnsMany(o => o.Shipments, shipment =>
+        {
+            shipment.ToTable("order_shipments");
+            shipment.WithOwner().HasForeignKey("OrderId");
+            shipment.Property<int>("Id").UseIdentityAlwaysColumn();
+            shipment.HasKey("Id");
+            shipment.Property(s => s.VendorId).HasMaxLength(64).IsRequired();
+            shipment.Property(s => s.Carrier).HasMaxLength(16).IsRequired();
+            shipment.Property(s => s.TrackingNumber).HasMaxLength(30).IsRequired();
+            shipment.HasIndex("OrderId", nameof(Shipment.VendorId)).IsUnique();
+        });
+        b.Navigation(o => o.Shipments).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

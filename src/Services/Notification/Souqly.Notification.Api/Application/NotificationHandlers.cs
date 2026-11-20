@@ -15,6 +15,10 @@ public sealed record OrderCancelled(Guid OrderId, string CustomerId, string Reas
 
 public sealed record PaymentRefunded(Guid OrderId, string CustomerId, Guid PaymentId, decimal Amount, string Currency);
 
+public sealed record OrderShipped(Guid OrderId, string CustomerId, string VendorId, string Carrier, string TrackingNumber, bool AllShipped);
+
+public sealed record OrderDelivered(Guid OrderId, string CustomerId, string VendorId, bool AllDelivered);
+
 /// <summary>
 /// Transforme les événements de la saga en messages lisibles. Le client est prévenu de chaque issue ;
 /// chaque vendeur reçoit seulement ses propres lignes d'une commande confirmée (RG-05).
@@ -24,8 +28,18 @@ public sealed partial class NotificationHandlers(NotificationDbContext db, TimeP
     IMessageHandler<OrderConfirmed>,
     IMessageHandler<OrderRejected>,
     IMessageHandler<OrderCancelled>,
-    IMessageHandler<PaymentRefunded>
+    IMessageHandler<PaymentRefunded>,
+    IMessageHandler<OrderShipped>,
+    IMessageHandler<OrderDelivered>
 {
+    private static readonly Dictionary<string, string> CarrierNames = new(StringComparer.Ordinal)
+    {
+        ["AMANA"] = "Amana",
+        ["CTM"] = "CTM Messagerie",
+        ["ARAMEX"] = "Aramex",
+        ["DHL"] = "DHL",
+    };
+
     // Format français écrit à la main : les images Docker .NET tournent sans données de culture (mode invariant).
     private static readonly NumberFormatInfo French = new() { NumberDecimalSeparator = ",", NumberGroupSeparator = "\u202F" };
 
@@ -68,6 +82,24 @@ public sealed partial class NotificationHandlers(NotificationDbContext db, TimeP
     {
         Notify(message.CustomerId, "PAYMENT_REFUNDED", message.OrderId, "Remboursement effectué",
             $"{Money(message.Amount, message.Currency)} ont été remboursés pour la commande {Short(message.OrderId)}.");
+        return db.SaveChangesAsync(ct);
+    }
+
+    public Task HandleAsync(OrderShipped message, MessageContext context, CancellationToken ct)
+    {
+        var carrier = CarrierNames.GetValueOrDefault(message.Carrier, message.Carrier);
+        var rest = message.AllShipped ? "Tous vos colis sont en route." : "Les autres colis de la commande suivront.";
+        Notify(message.CustomerId, "ORDER_SHIPPED", message.OrderId, "Colis expédié",
+            $"Un colis de votre commande {Short(message.OrderId)} est parti avec {carrier}, n° de suivi {message.TrackingNumber}. {rest}");
+        return db.SaveChangesAsync(ct);
+    }
+
+    public Task HandleAsync(OrderDelivered message, MessageContext context, CancellationToken ct)
+    {
+        var body = message.AllDelivered
+            ? $"Votre commande {Short(message.OrderId)} est entièrement livrée. Merci pour votre achat sur Souqly !"
+            : $"Un colis de votre commande {Short(message.OrderId)} est livré ; les autres sont encore en route.";
+        Notify(message.CustomerId, message.AllDelivered ? "ORDER_DELIVERED" : "PARCEL_DELIVERED", message.OrderId, "Colis livré", body);
         return db.SaveChangesAsync(ct);
     }
 

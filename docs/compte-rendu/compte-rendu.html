@@ -458,8 +458,34 @@
     <img src="img/s4-payment-restart.png" alt="Panne puis reprise de Payment">
     <figcaption>Figure 21 — Preuve demandée par le cahier des charges : Payment est arrêté, la commande attend en STOCK_RESERVED (rien n'est perdu), puis passe à CONFIRMED dès que Payment redémarre.</figcaption>
   </figure>
-  <div class="note"><b>Vérifications faites ici.</b> Les 14 requêtes PromQL du tableau de bord et des alertes ont été validées par un analyseur ; un test vérifie que les compteurs lus par l'alerte sont bien émis. Grafana lui-même ne peut pas tourner dans cet espace de travail (pas de Docker) : la capture du tableau de bord sera faite sur le PC.</div>
+  <figure>
+    <img src="img/s4-grafana-pc.jpg" alt="Tableau de bord Grafana Souqly">
+    <figcaption>Figure 22 — Sur le PC (vrai Kafka), après 27 commandes : 4 commandes/min, taux d'échec 0 % (refus de paiement et ruptures exclus comme prévu), aucune DLQ. La saga p95 mesurée est de 7 s, au-dessus de l'objectif de 5 s.</figcaption>
+  </figure>
+  <div class="note"><b>Problème rencontré : Grafana refusait de démarrer.</b> Les journaux ne disaient que « Grafana exited ». Diagnostic par élimination, directement sur le PC : sans le fichier d'alertes, Grafana démarre ; avec, il s'arrête. En rechargeant les alertes à chaud par l'API de Grafana avec des versions réduites du fichier, la cause a été isolée : l'annotation <code>__dashboardUid__</code> sans <code>__panelId__</code>, refusée par Grafana 13. Corrigé, puis vérifié par un redémarrage complet. Les alertes ont aussi reçu leur propre dossier pour éviter un conflit avec celui des tableaux de bord.</div>
+  <div class="note"><b>Constat à traiter (SLO).</b> La saga p95 de 7 s dépasse l'objectif de 5 s : chaque étape attend la lecture de l'outbox (0,5 s) puis la récupération Kafka. Pistes : réveiller le publieur dès l'écriture au lieu d'interroger, réduire <code>fetch.wait.max.ms</code>. À mesurer avec k6.</div>
   <div class="note"><b>Bug corrigé.</b> Le lien « Documentation de l'API » d'Aspire ouvrait <code>/scalar/scalar</code> (chemin ajouté deux fois) : Scalar ne trouvait pas de document et la connexion n'était pas configurée. Trouvé lors du test manuel sur le PC, corrigé dans l'AppHost.</div>
+</section>
+
+<!-- ======================= TÂCHE 11 ======================= -->
+<section class="task">
+  <h2>Tâche 11 — Expédition et suivi de livraison (Sprint 4, US-13/14) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Le vendeur déclare l'expédition de son colis avec un numéro de suivi ; le client suit sa livraison.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Un colis par vendeur</td><td>Une commande peut contenir les produits de plusieurs vendeurs : chacun expédie <b>son</b> colis. La commande reste CONFIRMED tant qu'un colis manque, passe à <b>SHIPPED</b> quand tous sont partis, puis à <b>DELIVERED</b> quand tous sont livrés.</td></tr>
+    <tr><td>Endpoints vendeur (US-13)</td><td><code>POST /api/v1/vendor/orders/{id}/shipment</code> (transporteur AMANA, CTM, ARAMEX ou DHL + n° de suivi) et <code>POST …/delivery</code> (idempotent). Un vendeur ne voit et n'expédie que ses propres colis (404 sinon).</td></tr>
+    <tr><td>Suivi client (US-14)</td><td><code>GET /api/v1/orders/{id}</code> renvoie maintenant la liste des colis : transporteur, n° de suivi, EN COURS / LIVRÉ, dates.</td></tr>
+    <tr><td>Règles</td><td>Seule une commande payée peut être expédiée (409) ; l'annulation est refusée dès qu'un colis est parti (RG-06) ; un colis ne part qu'une fois (409) ; format du n° de suivi vérifié (400).</td></tr>
+    <tr><td>Événements</td><td><code>OrderShipped</code> et <code>OrderDelivered</code> sur Kafka (contrat AsyncAPI 1.1.0) ; Notification prévient le client : « Un colis est parti avec Amana, n° AM123456789MA ».</td></tr>
+    <tr><td>Base</td><td>Table <code>order_shipments</code>, un colis unique par (commande, vendeur) ; migration EF Core.</td></tr>
+  </table>
+  <figure>
+    <img src="img/s4-shipping-tests.png" alt="Tests de l'expédition">
+    <figcaption>Figure 23 — Tests de l'expédition : droits du vendeur, validation, états SHIPPED puis DELIVERED, annulation refusée après expédition, et parcours complet commande → paiement → deux colis → livraison avec les notifications du client.</figcaption>
+  </figure>
 </section>
 
 <!--NEXT-TASKS-->

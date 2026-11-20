@@ -53,8 +53,10 @@ public class OrderTests
         var order = NewOrder();
         order.MarkStockReserved(Now);
         order.Confirm(Guid.NewGuid(), Now);
-        order.Ship(Now);
-        order.Deliver(Now);
+        order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now).ShouldBeFalse();
+        order.ShipFor("vendor-2", "CTM", "CTM-998877", Now).ShouldBeTrue();
+        order.MarkDelivered("vendor-1", Now).ShouldBeFalse();
+        order.MarkDelivered("vendor-2", Now).ShouldBeTrue();
         order.Status.ShouldBe(OrderStatus.Delivered);
     }
 
@@ -78,7 +80,8 @@ public class OrderTests
         var shipped = NewOrder();
         shipped.MarkStockReserved(Now);
         shipped.Confirm(Guid.NewGuid(), Now);
-        shipped.Ship(Now);
+        shipped.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now);
+        shipped.ShipFor("vendor-2", "DHL", "DHL-445566", Now);
         Should.Throw<IllegalOrderTransitionException>(() => shipped.Cancel("CUSTOMER_REQUEST", Now));
         shipped.Status.ShouldBe(OrderStatus.Shipped);
     }
@@ -88,7 +91,7 @@ public class OrderTests
     {
         var order = NewOrder();
         Should.Throw<IllegalOrderTransitionException>(() => order.Confirm(Guid.NewGuid(), Now));   // il faut d'abord le stock
-        Should.Throw<IllegalOrderTransitionException>(() => order.Ship(Now));
+        Should.Throw<IllegalOrderTransitionException>(() => order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now));
         var rejected = NewOrder();
         rejected.Reject("OUT_OF_STOCK", Now);
         Should.Throw<IllegalOrderTransitionException>(() => rejected.Cancel("x", Now));
@@ -112,6 +115,58 @@ public class OrderTests
         order.MarkStockReserved(Now);
         order.Confirm(payment, Now);
         order.PaymentId.ShouldBe(payment);
+    }
+
+    private static Order Confirmed()
+    {
+        var order = NewOrder();
+        order.MarkStockReserved(Now);
+        order.Confirm(Guid.NewGuid(), Now);
+        return order;
+    }
+
+    [Fact]
+    public void US13_chaque_vendeur_expedie_son_colis_la_commande_reste_CONFIRMED_tant_qu_un_colis_manque()
+    {
+        var order = Confirmed();
+        order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now);
+        order.Status.ShouldBe(OrderStatus.Confirmed);
+        order.Shipments.Single().TrackingNumber.ShouldBe("AM123456789MA");
+    }
+
+    [Fact]
+    public void RG06_annulation_refusee_des_qu_un_colis_est_parti()
+    {
+        var order = Confirmed();
+        order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now);
+        Should.Throw<IllegalOrderTransitionException>(() => order.Cancel("CUSTOMER_REQUEST", Now));
+    }
+
+    [Theory]
+    [InlineData("POSTE", "AM123456789MA", "unknown-carrier")]
+    [InlineData("AMANA", "123", "invalid-tracking")]
+    [InlineData("AMANA", "am-minuscules", "invalid-tracking")]
+    public void Transporteur_et_numero_de_suivi_sont_valides(string carrier, string tracking, string code) =>
+        Should.Throw<OrderRuleException>(() => Confirmed().ShipFor("vendor-1", carrier, tracking, Now)).Code.ShouldBe(code);
+
+    [Fact]
+    public void Un_vendeur_n_expedie_que_sa_commande_et_une_seule_fois()
+    {
+        var order = Confirmed();
+        Should.Throw<OrderRuleException>(() => order.ShipFor("vendor-x", "AMANA", "AM123456789MA", Now)).Code.ShouldBe("not-your-order");
+        order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now);
+        Should.Throw<OrderRuleException>(() => order.ShipFor("vendor-1", "AMANA", "AM000000000MA", Now)).Code.ShouldBe("already-shipped");
+    }
+
+    [Fact]
+    public void Livraison_d_un_colis_non_expedie_refusee_et_double_livraison_sans_effet()
+    {
+        var order = Confirmed();
+        Should.Throw<OrderRuleException>(() => order.MarkDelivered("vendor-1", Now)).Code.ShouldBe("not-shipped");
+        order.ShipFor("vendor-1", "AMANA", "AM123456789MA", Now);
+        order.MarkDelivered("vendor-1", Now).ShouldBeFalse();
+        order.MarkDelivered("vendor-1", Now.AddHours(1)).ShouldBeFalse();
+        order.Shipments.Single().DeliveredAt.ShouldBe(Now);
     }
 
     [Fact]

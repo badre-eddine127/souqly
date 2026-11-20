@@ -213,6 +213,88 @@
                     }
                 }
             }
+        },
+        "/api/v1/vendor/orders/{id}/shipment": {
+            "post": {
+                "tags": [
+                    "Espace vendeur"
+                ],
+                "summary": "Exp\u00e9dier mon colis : transporteur + num\u00e9ro de suivi (US-13)",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ShipRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorOrderResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vendor/orders/{id}/delivery": {
+            "post": {
+                "tags": [
+                    "Espace vendeur"
+                ],
+                "summary": "Confirmer la livraison de mon colis",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorOrderResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -404,7 +486,8 @@
                     "lines",
                     "total",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "shipments"
                 ],
                 "type": "object",
                 "properties": {
@@ -440,6 +523,12 @@
                     "updatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "shipments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ShipmentResponse"
+                        }
                     }
                 }
             },
@@ -508,13 +597,65 @@
                     }
                 }
             },
+            "ShipRequest": {
+                "required": [
+                    "carrier",
+                    "trackingNumber"
+                ],
+                "type": "object",
+                "properties": {
+                    "carrier": {
+                        "type": "string"
+                    },
+                    "trackingNumber": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ShipmentResponse": {
+                "required": [
+                    "vendorId",
+                    "carrier",
+                    "trackingNumber",
+                    "status",
+                    "shippedAt",
+                    "deliveredAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "vendorId": {
+                        "type": "string"
+                    },
+                    "carrier": {
+                        "type": "string"
+                    },
+                    "trackingNumber": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "shippedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "deliveredAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
             "VendorOrderResponse": {
                 "required": [
                     "orderId",
                     "status",
                     "lines",
                     "vendorTotal",
-                    "createdAt"
+                    "createdAt",
+                    "shipment"
                 ],
                 "type": "object",
                 "properties": {
@@ -537,6 +678,16 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "shipment": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ShipmentResponse"
+                            }
+                        ]
                     }
                 }
             }
