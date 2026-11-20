@@ -1,0 +1,38 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Souqly.Chassis/Souqly.Chassis.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/ApiGateway/">
+    <Project Path="src/Services/ApiGateway/Souqly.ApiGateway/Souqly.ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Cart/">
+    <Project Path="src/Services/Cart/Souqly.Cart.Api/Souqly.Cart.Api.csproj" />
+    <Project Path="src/Services/Cart/Souqly.Cart.Application/Souqly.Cart.Application.csproj" />
+    <Project Path="src/Services/Cart/Souqly.Cart.Domain/Souqly.Cart.Domain.csproj" />
+    <Project Path="src/Services/Cart/Souqly.Cart.Infrastructure/Souqly.Cart.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Catalog/">
+    <Project Path="src/Services/Catalog/Souqly.Catalog.Api/Souqly.Catalog.Api.csproj" />
+    <Project Path="src/Services/Catalog/Souqly.Catalog.Application/Souqly.Catalog.Application.csproj" />
+    <Project Path="src/Services/Catalog/Souqly.Catalog.Domain/Souqly.Catalog.Domain.csproj" />
+    <Project Path="src/Services/Catalog/Souqly.Catalog.Infrastructure/Souqly.Catalog.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Inventory/">
+    <Project Path="src/Services/Inventory/Souqly.Inventory.Api/Souqly.Inventory.Api.csproj" />
+    <Project Path="src/Services/Inventory/Souqly.Inventory.Application/Souqly.Inventory.Application.csproj" />
+    <Project Path="src/Services/Inventory/Souqly.Inventory.Domain/Souqly.Inventory.Domain.csproj" />
+    <Project Path="src/Services/Inventory/Souqly.Inventory.Infrastructure/Souqly.Inventory.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ApiGateway.Tests/ApiGateway.Tests.csproj" />
+    <Project Path="tests/Cart.Tests/Cart.Tests.csproj" />
+    <Project Path="tests/Catalog.ApiTests/Catalog.ApiTests.csproj" />
+    <Project Path="tests/Catalog.ArchitectureTests/Catalog.ArchitectureTests.csproj" />
+    <Project Path="tests/Catalog.UnitTests/Catalog.UnitTests.csproj" />
+    <Project Path="tests/Inventory.ApiTests/Inventory.ApiTests.csproj" />
+    <Project Path="tests/Inventory.UnitTests/Inventory.UnitTests.csproj" />
+    <Project Path="tests/Souqly.Testing/Souqly.Testing.csproj" />
+  </Folder>
+</Solution>

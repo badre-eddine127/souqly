@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Souqly.Inventory.Domain\Souqly.Inventory.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Chassis\Souqly.Chassis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+
+</Project>

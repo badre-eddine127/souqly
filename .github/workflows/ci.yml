@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restaurer
+        run: dotnet restore Souqly.slnx
+
+      - name: Vérifier le formatage
+        run: dotnet format Souqly.slnx --verify-no-changes --no-restore
+
+      - name: Compiler (avertissements = erreurs)
+        run: dotnet build Souqly.slnx --no-restore -c Release
+
+      - name: Tester avec couverture
+        run: >
+          dotnet test Souqly.slnx --no-build -c Release
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+          --logger "trx;LogFilePrefix=results"
+
+      - name: Rapport de couverture
+        if: always()
+        uses: danielpalme/ReportGenerator-GitHub-Action@5
+        with:
+          reports: TestResults/**/coverage.cobertura.xml
+          targetdir: coverage
+          reporttypes: MarkdownSummaryGithub;Cobertura
+
+      - name: Résumé de couverture
+        if: always()
+        run: cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY" || true
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

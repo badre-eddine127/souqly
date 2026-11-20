@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      efcore:
+        patterns: ["Microsoft.EntityFrameworkCore*", "Npgsql*"]
+      tests:
+        patterns: ["xunit*", "Microsoft.NET.Test.Sdk", "coverlet*", "Testcontainers*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /src/Services/Catalog/Souqly.Catalog.Api
+    schedule:
+      interval: weekly

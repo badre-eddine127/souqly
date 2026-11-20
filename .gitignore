@@ -1,0 +1,32 @@
+# Build
+bin/
+obj/
+out/
+publish/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+
+# Tests et couverture
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# Secrets : seul .env.example est versionné
+.env
+!.env.example
+appsettings.*.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (frontend facultatif)
+node_modules/
+
+# Redis local
+dump.rdb

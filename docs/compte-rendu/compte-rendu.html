@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Souqly — Compte rendu d'avancement</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 10.5pt; color: #1f2328; line-height: 1.5; }
+  h1 { font-size: 22pt; margin: 0 0 4pt; color: #0b3d63; }
+  h2 { font-size: 15pt; color: #0b3d63; border-bottom: 2px solid #0b3d63; padding-bottom: 3pt; margin-top: 0; }
+  h3 { font-size: 11.5pt; color: #0b3d63; margin: 14pt 0 4pt; }
+  p { margin: 4pt 0 7pt; }
+  .cover { height: 245mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+  .cover .band { background: #0b3d63; color: #fff; padding: 26pt 24pt; border-radius: 6pt; }
+  .cover .band h1 { color: #fff; font-size: 28pt; }
+  .cover .band p { color: #d6e4f0; font-size: 12pt; margin: 2pt 0; }
+  .meta td { padding: 3pt 10pt 3pt 0; vertical-align: top; }
+  .meta td:first-child { color: #57606a; width: 42mm; }
+  table.t { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 9.5pt; }
+  table.t th { background: #eef3f8; text-align: left; padding: 5pt 6pt; border: 1px solid #c9d6e2; }
+  table.t td { padding: 4pt 6pt; border: 1px solid #d8dee4; vertical-align: top; }
+  .ok { color: #1a7f37; font-weight: bold; }
+  .todo { color: #9a6700; font-weight: bold; }
+  code { font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt; background: #f2f4f7; padding: 0 2pt; border-radius: 2pt; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #d0d7de; border-radius: 4pt; }
+  figcaption { font-size: 9pt; color: #57606a; margin-top: 3pt; text-align: center; }
+  .task { page-break-before: always; }
+  .badge { display: inline-block; background: #dafbe1; color: #1a7f37; border: 1px solid #a6e3b5; border-radius: 10pt; padding: 1pt 8pt; font-size: 9pt; font-weight: bold; }
+  .note { background: #fff8e5; border-left: 4px solid #d4a72c; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.5pt; }
+  ul { margin: 3pt 0 7pt; padding-left: 16pt; }
+  li { margin: 2pt 0; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="band">
+    <h1>Souqly</h1>
+    <p>Marketplace marocaine en microservices — .NET 10 et Entity Framework Core</p>
+    <p style="margin-top:14pt;font-size:16pt;color:#fff">Compte rendu d'avancement</p>
+  </div>
+  <table class="meta">
+    <tr><td>Module</td><td>SUP351 · Développement avancé des applications · SupMTI Oujda</td></tr>
+    <tr><td>Enseignant</td><td>Pr Ihababdelbasset Annaki</td></tr>
+    <tr><td>Étudiant</td><td>Badre</td></tr>
+    <tr><td>Stack</td><td>.NET 10 LTS, ASP.NET Core, EF Core 10 (Npgsql), PostgreSQL 16 — accord de l'enseignant du 19/11/2026 (ADR-000)</td></tr>
+    <tr><td>Version du document</td><td>v1 · 20/11/2026</td></tr>
+  </table>
+  <div>
+    <h3>Synthèse</h3>
+    <table class="t">
+      <tr><th>Tâche</th><th>Sprint</th><th>État</th><th>Preuve</th></tr>
+      <!--SUMMARY-->
+      <tr><td>1. Socle du dépôt (structure, conventions, CI, ADR)</td><td>0</td><td class="ok">Terminée</td><td>Build 0 avertissement</td></tr>
+      <tr><td>2. Service Catalog (US-01, US-02, US-03)</td><td>1</td><td class="ok">Terminée</td><td>49 tests verts</td></tr>
+      <tr><td>3. Service Inventory et vente flash (US-10, US-11, RG-01, RG-03)</td><td>1</td><td class="ok">Terminée</td><td>500 achats → 0 survente</td></tr>
+      <tr><td>4. Cart (Redis), passerelle YARP, Docker Compose (US-05)</td><td>1</td><td class="ok">Terminée</td><td>Parcours via :8080</td></tr>
+      <tr><td><b>Total</b></td><td></td><td></td><td><b>93 tests verts</b></td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= TÂCHE 1 ======================= -->
+<section>
+  <h2>Tâche 1 — Socle du dépôt <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Mettre en place un monorepo .NET propre que tous les services suivront : conventions communes, versions de paquets centralisées, intégration continue et premières décisions d'architecture.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Contenu</th></tr>
+    <tr><td><code>Souqly.slnx</code>, <code>global.json</code></td><td>Solution unique, SDK .NET 10 figé pour toute l'équipe et la CI.</td></tr>
+    <tr><td><code>Directory.Build.props</code></td><td>Nullable activé, analyseurs Roslyn « latest-recommended », <b>avertissements traités comme des erreurs</b>.</td></tr>
+    <tr><td><code>Directory.Packages.props</code></td><td>Versions NuGet centralisées (équivalent du POM parent Maven) ; chaque version vérifiée sur nuget.org.</td></tr>
+    <tr><td><code>.editorconfig</code>, <code>.gitignore</code></td><td>Style de code vérifié au build ; <code>.env</code> et secrets exclus de Git.</td></tr>
+    <tr><td><code>.github/</code></td><td>Pipeline <code>ci.yml</code> (format, build, tests, couverture, gitleaks), modèles de PR, de story et de bug, Dependabot.</td></tr>
+    <tr><td><code>docs/adr/</code></td><td>ADR-000 (.NET au lieu de Java), ADR-001 (microservices), ADR-002 (monorepo).</td></tr>
+    <tr><td><code>README.md</code>, <code>CONTRIBUTING.md</code></td><td>Démarrage, structure, conventions Git et de code, ajout d'une migration EF.</td></tr>
+    <tr><td><code>Souqly.Chassis</code></td><td>Bibliothèque transverse minimale : erreurs RFC 9457 avec <code>traceId</code>, pagination, utilisateur courant, sondes de santé.</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/build.png" alt="Compilation de la solution">
+    <figcaption>Figure 1 — Compilation complète de la solution : 0 avertissement, 0 erreur (avertissements traités comme erreurs).</figcaption>
+  </figure>
+
+  <div class="note"><b>Choix de bibliothèques.</b> FluentAssertions 8 et MediatR étant devenus payants, on utilise Shouldly pour les assertions et des cas d'usage écrits à la main. Les paquets Microsoft sont alignés sur la branche 10.0.x (LTS) même si .NET 11 est sorti.</div>
+</section>
+
+<!-- ======================= TÂCHE 2 ======================= -->
+<section class="task">
+  <h2>Tâche 2 — Service Catalog <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Livrer le catalogue : parcours public paginé (US-01), fiche produit (US-02) et gestion des produits par le vendeur (US-03), avec les règles RG-02, RG-07 et RG-08.</p>
+
+  <h3>Architecture du service</h3>
+  <table class="t">
+    <tr><th>Projet</th><th>Rôle</th></tr>
+    <tr><td><code>Souqly.Catalog.Domain</code></td><td>Entité <code>Product</code> qui protège ses règles : prix entre 0,01 et 50 000 MAD avec 2 décimales, statuts Brouillon → Actif → Archivé, propriété du vendeur. Aucune dépendance technique.</td></tr>
+    <tr><td><code>Souqly.Catalog.Application</code></td><td><code>ProductService</code> (cas d'usage), validateurs FluentValidation, contrats d'API (<code>MoneyDto</code> : montant en chaîne + devise).</td></tr>
+    <tr><td><code>Souqly.Catalog.Infrastructure</code></td><td><code>CatalogDbContext</code> EF Core + Npgsql, noms en snake_case, <code>NUMERIC(12,2)</code>, contrainte <code>CHECK price &gt; 0</code>, concurrence optimiste sur <code>xmin</code>, migration <code>InitialCatalog</code> et 8 catégories de référence.</td></tr>
+    <tr><td><code>Souqly.Catalog.Api</code></td><td>Endpoints minimaux, autorisation par rôle, documentation OpenAPI + Scalar, sondes <code>/health/live</code> et <code>/health/ready</code>.</td></tr>
+  </table>
+
+  <h3>Endpoints livrés</h3>
+  <table class="t">
+    <tr><th>Verbe</th><th>Chemin</th><th>Accès</th><th>Story</th></tr>
+    <tr><td>GET</td><td><code>/api/v1/products?category=&amp;minPrice=&amp;maxPrice=&amp;q=&amp;sort=&amp;page=&amp;size=</code></td><td>public</td><td>US-01</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/products/{id}</code></td><td>public (brouillon : propriétaire seul)</td><td>US-02</td></tr>
+    <tr><td>POST · PUT · DELETE</td><td><code>/api/v1/products[/{id}]</code></td><td>VENDOR propriétaire</td><td>US-03</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/vendor/products</code></td><td>VENDOR</td><td>US-03</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/categories</code></td><td>public</td><td>US-01</td></tr>
+    <tr><td>GET</td><td><code>/internal/v1/products/prices?ids=</code></td><td>client technique</td><td>RG-02</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/catalog-scalar.png" alt="Documentation Scalar du service Catalog">
+    <figcaption>Figure 2 — Documentation interactive de l'API Catalog (OpenAPI 3.1 + Scalar), générée depuis le code.</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <h3>Comportement vérifié par appels HTTP</h3>
+  <p>Le service tourne contre PostgreSQL 16. Les quatre appels montrent la création par un vendeur, le contrôle d'accès objet (un autre vendeur reçoit 404 pour ne pas révéler l'existence du produit), le refus d'un client et une erreur de validation au format RFC 9457.</p>
+  <figure>
+    <img src="img/http-catalog.png" alt="Appels HTTP au service Catalog">
+    <figcaption>Figure 3 — Réponses 201, 404, 403 et 400 du service Catalog.</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <h3>Tests automatisés</h3>
+  <table class="t">
+    <tr><th>Projet de tests</th><th>Nombre</th><th>Ce qui est vérifié</th></tr>
+    <tr><td><code>Catalog.UnitTests</code></td><td>31</td><td>Règles du domaine (prix, statuts, propriété), cas d'usage avec dépôt simulé (NSubstitute), validation des requêtes, tri en liste blanche.</td></tr>
+    <tr><td><code>Catalog.ApiTests</code></td><td>16</td><td>Service complet via <code>WebApplicationFactory</code> sur un <b>vrai PostgreSQL 16</b> (migrations appliquées) : 201/400/401/403/404/409/422, pagination plafonnée à 100, sous-catégories, prix interne, santé.</td></tr>
+    <tr><td><code>Catalog.ArchitectureTests</code></td><td>2</td><td>Le domaine ne dépend ni d'ASP.NET Core ni d'EF Core ; l'application ne dépend pas de l'infrastructure (NetArchTest).</td></tr>
+  </table>
+  <figure>
+    <img src="img/tests-catalog.png" alt="Résultats des tests">
+    <figcaption>Figure 4 — 49 tests verts, dont 16 tests d'API exécutés sur PostgreSQL 16.</figcaption>
+  </figure>
+
+  <h3>Écarts et dette assumée</h3>
+  <ul>
+    <li>L'authentification utilise pour l'instant des en-têtes de développement (<code>X-User-Id</code>, <code>X-User-Roles</code>), interdits en production. Keycloak et JWT arrivent au Sprint 2 sans changer les endpoints, qui ne lisent que <code>sub</code> et les rôles.</li>
+    <li>La validation des vendeurs (US-16) et les ETag/If-Match (niveau Pro) ne sont pas encore faits.</li>
+    <li>Les tests d'intégration fonctionnent avec Testcontainers (Docker) ou un PostgreSQL local via la variable <code>SOUQLY_TEST_POSTGRES</code>.</li>
+  </ul>
+</section>
+
+<!-- ======================= TÂCHE 3 ======================= -->
+<section class="task">
+  <h2>Tâche 3 — Service Inventory et vente flash <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Gérer le stock des vendeurs (US-10) et réserver le stock pendant le paiement (US-11) sans jamais vendre un article absent, même sous 500 achats simultanés (RG-01). Les réservations expirent après 15 minutes (RG-03).</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Domaine</td><td><code>StockItem</code> (physique, réservé, disponible = physique − réservé) et <code>Reservation</code> (statuts Active → Committed / Released / Expired, expiration à 15 min).</td></tr>
+    <tr><td>Réservation atomique</td><td><code>ExecuteUpdateAsync</code> génère <code>UPDATE stock_items SET reserved = reserved + @q WHERE product_id = @id AND on_hand - reserved &gt;= @q</code> : PostgreSQL vérifie et écrit en une seule opération (ADR-007).</td></tr>
+    <tr><td>Garde-fous en base</td><td>Contraintes <code>CHECK</code> : <code>on_hand &gt;= 0</code>, <code>reserved &gt;= 0</code>, <code>reserved &lt;= on_hand</code>. Index unique <code>(order_id, product_id)</code> pour l'idempotence.</td></tr>
+    <tr><td>Tout ou rien</td><td>Lignes triées par produit (pas d'interblocage), transaction annulée si une seule ligne manque de stock.</td></tr>
+    <tr><td>Compensations</td><td><code>release</code> (paiement refusé, annulation) et <code>commit</code> (commande confirmée), toutes deux rejouables sans double effet.</td></tr>
+    <tr><td>Expiration</td><td><code>ReservationExpiryWorker</code> (<code>BackgroundService</code>, toutes les 30 s) avec verrou consultatif PostgreSQL : une seule réplique travaille à la fois.</td></tr>
+    <tr><td>Endpoints</td><td>Publics : disponibilité. Vendeur : fixer, ajuster, consulter son stock. Internes (Ordering, puis Kafka au Sprint 3) : réserver, libérer, consommer.</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/http-inventory.png" alt="Scénario de stock de US-06">
+    <figcaption>Figure 5 — Le scénario Gherkin de US-06 rejoué sur le service : réservation, refus pour stock insuffisant, compensation (stock revenu à 3), puis confirmation (stock physique à 2).</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <h3>Preuve : aucune survente sous 500 achats concurrents</h3>
+  <p>Le test <code>FlashSaleTests</code> crée un produit avec 100 unités puis lance 500 réservations au même instant, chacune dans sa propre connexion à PostgreSQL 16. Exigence du cahier des charges : <b>0 survente sur 500 achats concurrents pour 100 unités</b>.</p>
+  <table class="t">
+    <tr><th>Mesure</th><th>Attendu</th><th>Obtenu</th></tr>
+    <tr><td>Réservations acceptées</td><td>100</td><td class="ok">100</td></tr>
+    <tr><td>Refus <code>OUT_OF_STOCK</code></td><td>400</td><td class="ok">400</td></tr>
+    <tr><td>Stock réservé / physique</td><td>100 / 100</td><td class="ok">100 / 100</td></tr>
+    <tr><td>Disponible</td><td>0 (jamais négatif)</td><td class="ok">0</td></tr>
+    <tr><td>Durée</td><td>—</td><td>≈ 1,5 s</td></tr>
+  </table>
+  <figure>
+    <img src="img/tests-inventory.png" alt="Tests du service Inventory">
+    <figcaption>Figure 6 — 27 tests Inventory verts (10 unitaires, 17 sur PostgreSQL réel), dont la vente flash, l'idempotence, la compensation et l'expiration à 15 minutes.</figcaption>
+  </figure>
+  <h3>Écarts et dette assumée</h3>
+  <ul>
+    <li>La propriété du stock est attribuée au premier vendeur qui le déclare ; le lien avec le propriétaire du produit dans Catalog passera par l'événement <code>ProductCreated</code> au Sprint 3.</li>
+    <li>Les réservations sont pour l'instant appelées par HTTP interne ; elles passeront par Kafka (<code>inventory.commands.v1</code>) avec l'outbox au Sprint 3. La logique métier, elle, ne changera pas.</li>
+  </ul>
+</section>
+
+<!-- ======================= TÂCHE 4 ======================= -->
+<section class="task">
+  <h2>Tâche 4 — Panier, passerelle et Docker Compose <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Terminer le Sprint 1 : panier conservé entre deux visites (US-05), passerelle comme point d'entrée unique, et environnement local qui démarre en une commande.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Service Cart</td><td>Panier par client dans Redis (clé <code>souqly:cart:{sub}</code>), durée de vie 30 jours repoussée à chaque modification. Il ne stocke que des produits et des quantités : le prix sera lu dans le catalogue au moment de la commande (RG-02). Règles RG-04 : 1 à 10 unités par ligne, 20 lignes au plus.</td></tr>
+    <tr><td>Passerelle YARP</td><td>Routes vers Catalog, Inventory et Cart ; <code>/internal/**</code> toujours refusé ; limitation de débit par utilisateur (20 req/s, pointes à 40) avec réponse 429 + <code>Retry-After</code> ; en-têtes de sécurité ; CORS strict.</td></tr>
+    <tr><td>Documentation unique</td><td>La passerelle agrège les documents OpenAPI des trois services dans une seule page Scalar (<code>http://localhost:8080/scalar</code>).</td></tr>
+    <tr><td>Dockerfiles</td><td>Un par service : restauration en couche séparée, image finale <code>aspnet:10.0</code>, utilisateur non root, sonde <code>--healthcheck</code> intégrée (l'image n'a pas curl).</td></tr>
+    <tr><td>Docker Compose</td><td>PostgreSQL 16 (une base et un utilisateur par service, créés par <code>init.sh</code>), Redis, 3 services, passerelle. Seule la passerelle est exposée (8080). Démarrage ordonné par les sondes de santé, mémoire limitée par conteneur, secrets dans <code>.env</code> (non versionné).</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/http-gateway.png" alt="Parcours de bout en bout via la passerelle">
+    <figcaption>Figure 7 — Parcours complet via la passerelle : publication d'un produit, déclaration du stock, consultation triée par prix, ajout au panier, refus de <code>/internal</code> et limitation de débit (429).</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/gateway-scalar.png" alt="Documentation agrégée par la passerelle">
+    <figcaption>Figure 8 — Documentation unique servie par la passerelle : un sélecteur donne accès aux API Catalog, Inventory et Cart.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/compose.png" alt="Configuration Docker Compose">
+    <figcaption>Figure 9 — Docker Compose validé : 6 conteneurs, tous avec sonde de santé ; seule la passerelle est exposée à la machine hôte.</figcaption>
+  </figure>
+  <div class="note"><b>À vérifier sur ton PC.</b> Le fichier Compose est validé (<code>docker compose config</code>), mais il n'a pas pu être lancé dans l'environnement de travail utilisé pour ce compte rendu : les registres d'images Docker y sont bloqués. Les services, eux, ont été exécutés et testés contre de vrais PostgreSQL 16 et Redis. Commande à lancer : <code>docker compose -f infra/compose/compose.yaml up -d --build --wait</code>.</div>
+</section>
+
+<!-- ======================= BILAN ======================= -->
+<section class="task">
+  <h2>Bilan du rattrapage des Sprints 0 et 1</h2>
+  <p>Le socle et les trois premiers services sont en place, compilés sans avertissement et couverts par <b>93 tests automatisés, tous verts</b>, exécutés sur de vrais PostgreSQL 16 et Redis.</p>
+  <figure>
+    <img src="img/tests-all.png" alt="Tous les tests de la solution">
+    <figcaption>Figure 10 — Exécution de tous les tests de la solution.</figcaption>
+  </figure>
+
+  <h3>Exigences du Sprint 1 (« Vous devez voir »)</h3>
+  <table class="t">
+    <tr><th>Exigence de l'énoncé</th><th>État</th></tr>
+    <tr><td>Swagger UI agrégé à la passerelle</td><td class="ok">Fait (Scalar, figure 8)</td></tr>
+    <tr><td>Un produit créé puis listé via <code>localhost:8080</code></td><td class="ok">Fait (figure 7)</td></tr>
+    <tr><td>Test de vente flash vert dans la CI (100 réservations sur 500)</td><td class="ok">Fait (figure 6)</td></tr>
+    <tr><td>Contrats OpenAPI de catalog, inventory, cart</td><td class="ok">Fait (<code>contracts/openapi/</code>) ; order au Sprint 2</td></tr>
+    <tr><td>ADR-001, 002, 007 (+ ADR-000)</td><td class="ok">Faits</td></tr>
+    <tr><td>ADR-008 (découverte de services), diagrammes C4 niveaux 1 et 2</td><td class="todo">À faire</td></tr>
+    <tr><td>Tag <code>v0.1.0</code></td><td class="todo">Après le premier push GitHub</td></tr>
+  </table>
+
+  <h3>Prochaines étapes (Sprint 2 : 19/11 → 03/12)</h3>
+  <ol>
+    <li>Pousser le dépôt sur GitHub, protéger <code>main</code>, vérifier que la CI passe, taguer <code>v0.1.0</code>.</li>
+    <li>Keycloak dans Compose (realm versionné) et remplacement des en-têtes de développement par JWT Bearer, sans changer les endpoints.</li>
+    <li>Service Ordering : création de commande avec instantané des prix (client HTTP + Polly) et clé d'idempotence.</li>
+    <li>Images publiées sur GHCR, gitleaks et Trivy dans la CI, modèle de menaces STRIDE et registre 09-08.</li>
+  </ol>
+</section>
+
+<!--NEXT-TASKS-->
+
+</body>
+</html>
