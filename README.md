@@ -36,6 +36,7 @@ flowchart TB
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download) (version figée dans `global.json`)
 - Docker Desktop (Compose v2)
+- [Node.js 22 LTS](https://nodejs.org) (site web React ; `npm` doit être dans le PATH)
 - 16 Go de RAM recommandés
 
 ## Démarrer depuis Visual Studio (F5)
@@ -47,7 +48,28 @@ flowchart TB
 
 Aspire démarre PostgreSQL 16, Redis 7, Keycloak 26 et Kafka en conteneurs, crée les bases, importe le realm `souqly`, lance les six services puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
 
+Le **site web** (ligne *web* du tableau de bord) s'ouvre sur **http://localhost:5173** : catalogue, panier, commande et suivi pour un client, produits, stock et expéditions pour un vendeur. Au premier F5, Aspire lance `npm install` (une minute environ).
+
 En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
+
+## Le site web (frontend)
+
+React 19 + Vite + TypeScript dans `frontend/` (option B du cahier des charges) :
+
+| Écran | Acteur | Stories |
+|---|---|---|
+| Catalogue (catégories, recherche, tri, pagination), fiche produit | visiteur | US-01, US-02 |
+| Panier, validation et paiement de test | client | US-05, US-06, US-09 |
+| Mes commandes, suivi (rafraîchi toutes les secondes), annulation, colis | client | US-07, US-08, US-14 |
+| Mes produits, mon stock, commandes à préparer et expédition | vendeur | US-03, US-10, US-13 |
+| Notifications | client, vendeur | US-15 |
+
+- Connexion Keycloak en **Authorization Code + PKCE** (client public `souqly-web`, `oidc-client-ts`) ; le jeton reste **en mémoire**, jamais dans `localStorage`.
+- Client d'API **généré** depuis `contracts/openapi` (`npm run api`, `openapi-typescript` + `openapi-fetch`) : aucun DTO écrit à la main ; la CI vérifie qu'il est à jour.
+- Tout passe par la passerelle (`/api` relayé par Vite en développement, par nginx dans l'image Docker).
+- Masquer un bouton ne protège rien : chaque service vérifie les rôles.
+
+Sans Aspire : `cd frontend && npm install && npm run dev` (passerelle attendue sur `localhost:8080`).
 
 ## Démarrer avec Docker Compose (démo, CI)
 
@@ -101,12 +123,18 @@ dotnet format Souqly.slnx --verify-no-changes
 
 Les tests d'intégration utilisent PostgreSQL via Testcontainers (Docker requis). Sans Docker, définir `SOUQLY_TEST_POSTGRES` avec une chaîne de connexion vers un PostgreSQL local.
 
+### Tests d'acceptation (Gherkin)
+
+Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les six services réels démarrés en mémoire (Catalog, Cart, Ordering, Inventory, Payment, Notification ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`.
+
 ## Structure
 
 ```
 src/BuildingBlocks/Souqly.Chassis   # technique transverse : erreurs, pagination, santé
 src/Services/<Service>/             # Domain · Application · Infrastructure · Api
 tests/<Service>.*Tests              # unitaires, API, intégration, architecture
+tests/Acceptance.Tests/Features     # critères d'acceptation Gherkin exécutables (Reqnroll)
+frontend/                           # site web React + Vite + TypeScript
 contracts/openapi · asyncapi        # contrats écrits avant le code
 infra/compose · keycloak · postgres # environnement local
 docs/adr · architecture · operations · security · compte-rendu

@@ -172,4 +172,14 @@ if (grafana is not null)
     gateway.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
 }
 
+// Site web (React + Vite) : npm install au premier lancement, puis serveur de développement sur le port 5173
+// (adresse de redirection déclarée dans Keycloak). /api est relayé vers la passerelle par le proxy de Vite.
+builder.AddViteApp("web", "../../../frontend")
+    .WithNpm(install: true)
+    .WithReference(gateway)
+    .WaitFor(gateway)
+    .WithEndpoint("http", e => e.Port = 5173)
+    .WithExternalHttpEndpoints()
+    .WithUrlForEndpoint("http", url => url.DisplayText = "Souqly (site web)");
+
 await builder.Build().RunAsync();

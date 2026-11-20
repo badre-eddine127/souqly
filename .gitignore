@@ -30,3 +30,8 @@ node_modules/
 
 # Redis local
 dump.rdb
+
+# Code généré par Reqnroll à partir des .feature
+*.feature.cs
+# Cache de compilation TypeScript
+*.tsbuildinfo

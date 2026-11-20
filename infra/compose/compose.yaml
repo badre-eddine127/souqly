@@ -264,6 +264,16 @@ services:
       payment: { condition: service_healthy }
       notification: { condition: service_healthy }
 
+  # Site web (React) servi par nginx, qui relaie /api vers la passerelle. Port 5173 : URL déclarée dans Keycloak.
+  web:
+    build:
+      context: ../../frontend
+    image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-web:${SOUQLY_VERSION:-dev}
+    ports:
+      - "5173:80"
+    depends_on:
+      gateway: { condition: service_healthy }
+
 volumes:
   postgres-data:
   redis-data:

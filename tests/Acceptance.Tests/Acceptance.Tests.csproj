@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests d'acceptation : les critères Gherkin des stories (Features/*.feature), exécutés par Reqnroll
+       contre les six services démarrés dans le même processus. Chaque service a sa classe Program,
+       d'où les alias (extern alias). -->
+  <PropertyGroup>
+    <!-- Le code généré par Reqnroll à partir des .feature ne suit pas nos règles d'analyse. -->
+    <NoWarn>$(NoWarn);CA1707;CA1822;CA1515;CA2007;CA1001</NoWarn>
+    <!-- Reqnroll a besoin des cultures (mots-clés Gherkin en français) : ICU est activé pour ce seul projet de test. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Catalog\Souqly.Catalog.Api\Souqly.Catalog.Api.csproj" Aliases="catalog" />
+    <ProjectReference Include="..\..\src\Services\Cart\Souqly.Cart.Api\Souqly.Cart.Api.csproj" Aliases="cart" />
+    <ProjectReference Include="..\..\src\Services\Ordering\Souqly.Ordering.Api\Souqly.Ordering.Api.csproj" Aliases="ordering" />
+    <ProjectReference Include="..\..\src\Services\Inventory\Souqly.Inventory.Api\Souqly.Inventory.Api.csproj" Aliases="inventory" />
+    <ProjectReference Include="..\..\src\Services\Payment\Souqly.Payment.Api\Souqly.Payment.Api.csproj" Aliases="payment" />
+    <ProjectReference Include="..\..\src\Services\Notification\Souqly.Notification.Api\Souqly.Notification.Api.csproj" Aliases="notification" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
+    <ProjectReference Include="..\Souqly.Testing\Souqly.Testing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Reqnroll.xUnit" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Shouldly" />
+    <Using Include="Reqnroll" />
+  </ItemGroup>
+
+</Project>
