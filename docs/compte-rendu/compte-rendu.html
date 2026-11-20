@@ -56,7 +56,7 @@
       <tr><td>2. Service Catalog (US-01, US-02, US-03)</td><td>1</td><td class="ok">Terminée</td><td>49 tests verts</td></tr>
       <tr><td>3. Service Inventory et vente flash (US-10, US-11, RG-01, RG-03)</td><td>1</td><td class="ok">Terminée</td><td>500 achats → 0 survente</td></tr>
       <tr><td>4. Cart (Redis), passerelle YARP, Docker Compose (US-05)</td><td>1</td><td class="ok">Terminée</td><td>Parcours via :8080</td></tr>
-      <tr><td>5. Lancement par F5 dans Visual Studio (Aspire)</td><td>1</td><td class="ok">Terminée</td><td>4 services « Running »</td></tr>
+      <tr><td>5. Lancement par F5 dans Visual Studio (Aspire)</td><td>1</td><td class="ok">Terminée</td><td>8 ressources « Running » (vérifié sur PC)</td></tr>
       <tr><td><b>Total</b></td><td></td><td></td><td><b>93 tests verts</b></td></tr>
     </table>
   </div>
@@ -274,8 +274,8 @@
   </table>
 
   <figure>
-    <img src="img/aspire-resources.png" alt="Tableau de bord Aspire : ressources">
-    <figcaption>Figure 11 — Après un seul lancement, les quatre services sont « Running » ; la ligne <i>gateway</i> ouvre directement la documentation de l'API. Capture faite avec des serveurs PostgreSQL/Redis existants ; sur un poste avec Docker Desktop, les ressources <i>postgres</i> et <i>Redis</i> apparaissent aussi.</figcaption>
+    <img src="img/aspire-resources-pc.png" alt="Tableau de bord Aspire sur le PC">
+    <figcaption>Figure 11 — Sur le PC de développement, un seul F5 dans Visual Studio : PostgreSQL 16 (bases CatalogDb et InventoryDb) et Redis 7 tournent dans Docker, puis les trois services et la passerelle démarrent dans l'ordre. Les 8 ressources sont « Running ».</figcaption>
   </figure>
 </section>
 
@@ -290,7 +290,81 @@
     <li>Ouvrir <code>Souqly.slnx</code> dans Visual Studio ; <code>Souqly.AppHost</code> est le projet de démarrage.</li>
     <li>Appuyer sur F5 : le tableau de bord s'ouvre, puis cliquer sur « Documentation de l'API (Scalar) ».</li>
   </ol>
-  <div class="note"><b>À vérifier sur ton PC.</b> Le lancement a été testé de bout en bout avec des serveurs PostgreSQL et Redis existants (mode prévu par l'AppHost). Le mode par défaut, avec les conteneurs lancés par Aspire, n'a pas pu être exécuté ici faute d'accès aux registres Docker. Les 93 tests restent verts après l'ajout de la télémétrie.</div>
+  <div class="note"><b>Vérifié le 20/11/2026</b> sur le PC de développement (Windows, Docker Desktop, WSL 2) : premier F5 réussi, les conteneurs PostgreSQL et Redis sont créés par Aspire. Les 93 tests restent verts après l'ajout de la télémétrie.</div>
+</section>
+
+<!-- ======================= TÂCHE 6 ======================= -->
+<section class="task">
+  <h2>Tâche 6 — Identité et sécurité avec Keycloak (Sprint 2) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Remplacer les en-têtes de développement (<code>X-User-Id</code>) par une vraie connexion : jetons JWT signés émis par Keycloak, rôles client / vendeur / administrateur, comptes de service entre microservices (ADR-003).</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Realm <code>souqly</code></td><td>Versionné dans <code>infra/keycloak/realm-souqly.json</code> et importé automatiquement : rôles CUSTOMER (par défaut), VENDOR, ADMIN, SERVICE ; mots de passe de 12 caractères minimum ; blocage après échecs répétés ; jetons valables 5 minutes.</td></tr>
+    <tr><td>Trois clients</td><td><code>souqly-web</code> (public, PKCE S256, utilisé par Scalar) ; <code>souqly-dev</code> (développement uniquement) ; <code>ordering-service</code> (confidentiel, client credentials, rôle SERVICE).</td></tr>
+    <tr><td>Validation dans chaque service</td><td>Signature RS256 (clés JWKS), émetteur, audience <code>souqly-api</code>, expiration : dans la passerelle <b>et</b> dans chaque service (défense en profondeur). L'identité vient uniquement du claim <code>sub</code>.</td></tr>
+    <tr><td>Tests sans Keycloak</td><td><code>TestJwt</code> signe des jetons avec une clé RSA de test : jetons valides, falsifiés, expirés et à mauvaise audience sont testés sur le vrai code de validation.</td></tr>
+    <tr><td>F5 et Compose</td><td>Keycloak 26.6 ajouté à l'AppHost Aspire (conteneur persistant, port 8180, secret du compte de service généré) et à Docker Compose (sonde de santé sur le port de gestion).</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/s2-keycloak-login.png" alt="Page de connexion Keycloak">
+    <figcaption>Figure 13 — En cliquant sur « Authorize » dans Scalar, la page de connexion du realm Souqly s'ouvre (flux code d'autorisation + PKCE) ; ici la cliente de démonstration <code>sara</code>.</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/s2-scalar-pkce.png" alt="Scalar connecté avec un jeton">
+    <figcaption>Figure 14 — Retour dans Scalar après la connexion : le jeton d'accès est obtenu, l'enseignant peut tester toute l'API avec les comptes de démonstration.</figcaption>
+  </figure>
+  <div class="note"><b>Problème rencontré.</b> Les premiers jetons ne contenaient ni <code>sub</code> ni rôles : les portées clientes déclarées dans le realm remplaçaient les portées intégrées de Keycloak. Correction : suppression de ces portées et ajout d'un mappeur d'audience par client. Vérifié en décodant les jetons réels.</div>
+</section>
+
+<!-- ======================= TÂCHE 7 ======================= -->
+<section class="task">
+  <h2>Tâche 7 — Service Ordering (US-06 à US-09) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Passer, suivre et annuler une commande, sans double commande en cas de double clic et sans que le client puisse choisir le prix.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Agrégat <code>Order</code></td><td>Machine à états PENDING → STOCK_RESERVED → CONFIRMED → SHIPPED → DELIVERED (ou REJECTED / CANCELLED) ; toute transition illégale est refusée (409). Règles RG-04 : 1 à 20 lignes, 1 à 10 unités, total ≤ 50 000 MAD.</td></tr>
+    <tr><td>Prix figé (RG-02)</td><td>Le client n'envoie que <code>productId</code> et <code>quantity</code>. Ordering lit les prix dans Catalog (<code>/internal/v1/products/prices</code>) avec son jeton de service, puis les fige dans la ligne.</td></tr>
+    <tr><td>Idempotence (US-09)</td><td>En-tête <code>Idempotency-Key</code> obligatoire ; clé unique (client, clé) en base. Même clé + même panier : la même commande est renvoyée (<code>Idempotent-Replayed: true</code>). Même clé + autre panier : 422.</td></tr>
+    <tr><td>Résilience</td><td>Polly (Microsoft.Extensions.Http.Resilience) : 1,2 s par essai, un nouvel essai, budget total 2,8 s, disjoncteur. Catalog arrêté ou lent : <b>503 + Retry-After en moins de 3 s</b>, jamais de prix inventé.</td></tr>
+    <tr><td>Base <code>ordering_db</code></td><td>Tables <code>orders</code>, <code>order_lines</code> (contraintes CHECK), <code>idempotency_keys</code> ; jeton de concurrence <code>xmin</code> ; migration EF Core.</td></tr>
+    <tr><td>Endpoints</td><td><code>POST /api/v1/orders</code> (202 + Location), <code>GET /api/v1/orders</code>, <code>GET /api/v1/orders/{id}</code>, <code>POST …/cancellation</code>, <code>GET /api/v1/vendor/orders</code> (le vendeur ne voit que ses lignes).</td></tr>
+  </table>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/s2-demo-e2e.png" alt="Parcours Sprint 2">
+    <figcaption>Figure 15 — Parcours complet avec de vrais jetons Keycloak via la passerelle : la vendeuse publie un tapis, la cliente le commande (202, total calculé par le serveur), le double clic renvoie la même commande, la vendeuse voit sa ligne, et les accès interdits sont refusés (401, 403, 404).</figcaption>
+  </figure>
+  <div class="note"><b>Problème rencontré.</b> L'en-tête <code>Location</code> contenait l'adresse interne du service (<code>localhost:5104</code>), ce qui contournait la passerelle et révélait l'architecture. Il est maintenant relatif (<code>/api/v1/orders/{id}</code>).</div>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/s2-tests-ordering.png" alt="Tests Ordering">
+    <figcaption>Figure 16 — 14 tests d'API Ordering sur PostgreSQL réel, avec un faux Catalog et un faux Keycloak sur un vrai port HTTP : dix envois simultanés avec la même clé donnent une seule commande, et un catalogue en panne ou trop lent donne 503 en moins de 3 s.</figcaption>
+  </figure>
+  <h3>Documentation de sécurité</h3>
+  <ul>
+    <li><b>ADR-003</b> : choix de Keycloak face à ASP.NET Core Identity, Duende et OpenIddict.</li>
+    <li><b>Modèle de menaces STRIDE</b> (<code>docs/security/threat-model.md</code>) : 20 menaces, chacune reliée à sa contre-mesure et au test qui la prouve.</li>
+    <li><b>Registre des traitements (loi 09-08)</b> (<code>docs/security/registre-traitements.md</code>) : données collectées, finalité, durée de conservation, minimisation (les services ne stockent que <code>sub</code>).</li>
+  </ul>
+  <h3>Bilan du Sprint 2</h3>
+  <table class="t">
+    <tr><th>Indicateur</th><th>Valeur</th></tr>
+    <tr><td>Tests</td><td><b>124 verts</b> (97 → 124 : +13 unitaires et +14 API Ordering)</td></tr>
+    <tr><td>Services</td><td>Catalog, Inventory, Cart, Ordering, passerelle + Keycloak, tous lancés par F5</td></tr>
+    <tr><td>Prochaine étape (Sprint 3)</td><td>Kafka et saga de commande : réservation de stock, paiement simulé, notifications, purge des clés d'idempotence.</td></tr>
+  </table>
 </section>
 
 <!--NEXT-TASKS-->

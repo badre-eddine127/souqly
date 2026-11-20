@@ -14,12 +14,14 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.Redis" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Services\Catalog\Souqly.Catalog.Api\Souqly.Catalog.Api.csproj" />
     <ProjectReference Include="..\..\Services\Inventory\Souqly.Inventory.Api\Souqly.Inventory.Api.csproj" />
     <ProjectReference Include="..\..\Services\Cart\Souqly.Cart.Api\Souqly.Cart.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Ordering\Souqly.Ordering.Api\Souqly.Ordering.Api.csproj" />
     <ProjectReference Include="..\..\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" />
   </ItemGroup>
 

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Souqly.Cart.Application;
 using Souqly.Testing;
@@ -25,15 +26,13 @@ public sealed class CartApiFactory : WebApplicationFactory<Program>, IAsyncLifet
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureTestServices(services => services.UseTestJwt());
         builder.UseSetting("ConnectionStrings:Redis", _redis.ConnectionString);
     }
 
     public HttpClient ClientAs(string userId, params string[] roles)
     {
-        var client = CreateClient();
-        client.DefaultRequestHeaders.Add("X-User-Id", userId);
-        client.DefaultRequestHeaders.Add("X-User-Roles", string.Join(',', roles));
-        return client;
+        return CreateClient().WithToken(TestJwt.Token(userId, roles));
     }
 }
 
@@ -47,7 +46,8 @@ public class CartApiTests(CartApiFactory factory) : IClassFixture<CartApiFactory
     [Fact]
     public async Task US05_ajouter_modifier_retirer_et_retrouver_son_panier()
     {
-        var sara = factory.ClientAs(NewCustomer(), "CUSTOMER");
+        var customer = NewCustomer();
+        var sara = factory.ClientAs(customer, "CUSTOMER");
 
         await sara.PutAsJsonAsync("/api/v1/carts/me/items/42", new SetQuantityRequest(1));
         await sara.PutAsJsonAsync("/api/v1/carts/me/items/7", new SetQuantityRequest(2));
@@ -55,7 +55,7 @@ public class CartApiTests(CartApiFactory factory) : IClassFixture<CartApiFactory
         await sara.DeleteAsync("/api/v1/carts/me/items/7");
 
         // « conservé entre deux visites » : un nouveau client HTTP relit le panier depuis Redis.
-        var cart = await factory.ClientAs(sara.DefaultRequestHeaders.GetValues("X-User-Id").Single(), "CUSTOMER")
+        var cart = await factory.ClientAs(customer, "CUSTOMER")
             .GetFromJsonAsync<CartResponse>("/api/v1/carts/me", Json);
         cart!.Items.ShouldBe([new CartLineResponse(42, 3)]);
         cart.TotalUnits.ShouldBe(3);

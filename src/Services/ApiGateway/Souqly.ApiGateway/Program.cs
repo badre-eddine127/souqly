@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Scalar.AspNetCore;
 using Souqly.Chassis;
 using Souqly.Chassis.Errors;
+using Souqly.Chassis.Security;
 
 if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 {
@@ -10,9 +11,12 @@ if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddSouqlyTelemetry();
+builder.Services.AddSouqlyJwt(builder.Configuration, builder.Environment);
+builder.Services.AddAuthorization();
+var auth = builder.Configuration.GetSection("Authentication").Get<SouqlyAuthOptions>() ?? new SouqlyAuthOptions();
 
 // Passerelle : point d'entrée unique. Elle route, limite le débit et ajoute les en-têtes de sécurité.
-// Aucune logique métier. La validation JWT (Keycloak) s'ajoute au sprint 2 ; chaque service garde ses propres règles.
+// Aucune logique métier. Elle valide le JWT Keycloak (routes protégées) ; chaque service revalide et applique ses règles.
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ProblemDetailsExceptionHandler.Customize);
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 builder.Services.AddHealthChecks();
@@ -25,7 +29,7 @@ builder.Services.AddRateLimiter(o =>
     // Quota par utilisateur (en-tête d'identité) sinon par adresse IP : 20 requêtes/s, pointes à 40.
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
     {
-        var user = http.Request.Headers["X-User-Id"].ToString();
+        var user = http.User.FindFirst("sub")?.Value;
         var key = string.IsNullOrEmpty(user) ? "ip:" + http.Connection.RemoteIpAddress : "user:" + user;
         return RateLimitPartition.GetTokenBucketLimiter(key, _ => new TokenBucketRateLimiterOptions
         {
@@ -77,6 +81,8 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapHealthChecks("/health/live").DisableRateLimiting();
@@ -89,6 +95,15 @@ app.MapScalarApiReference(o =>
     o.AddDocument("catalog", "Catalog", "/openapi/catalog.json");
     o.AddDocument("inventory", "Inventory", "/openapi/inventory.json");
     o.AddDocument("cart", "Cart", "/openapi/cart.json");
+    o.AddDocument("ordering", "Ordering", "/openapi/ordering.json");
+    // Bouton « Authorize » : connexion Keycloak en Authorization Code + PKCE, sans secret côté navigateur.
+    o.AddPreferredSecuritySchemes(OpenApiSetup.OAuth2Scheme)
+     .AddAuthorizationCodeFlow(OpenApiSetup.OAuth2Scheme, flow =>
+     {
+         flow.ClientId = auth.PublicClientId;
+         flow.Pkce = Pkce.Sha256;
+         flow.SelectedScopes = ["openid"];
+     });
 }).DisableRateLimiting();
 
 app.MapReverseProxy();

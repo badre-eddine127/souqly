@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" />
+    <ProjectReference Include="..\Souqly.Testing\Souqly.Testing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

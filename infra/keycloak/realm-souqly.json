@@ -1,0 +1,248 @@
+{
+  "realm": "souqly",
+  "displayName": "Souqly",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "passwordPolicy": "length(12) and notUsername",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "defaultRole": {
+    "name": "default-roles-souqly",
+    "composite": true,
+    "composites": {
+      "realm": [
+        "CUSTOMER",
+        "offline_access",
+        "uma_authorization"
+      ]
+    }
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Client : panier, commandes, suivi"
+      },
+      {
+        "name": "VENDOR",
+        "description": "Vendeur : produits, stock, commandes reçues"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrateur : vendeurs, catégories, audit"
+      },
+      {
+        "name": "SERVICE",
+        "description": "Compte technique d'un microservice (appels /internal)"
+      },
+      {
+        "name": "default-roles-souqly",
+        "description": "Rôles donnés à tout nouvel inscrit",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "CUSTOMER",
+            "offline_access",
+            "uma_authorization"
+          ],
+          "client": {
+            "account": [
+              "view-profile",
+              "manage-account"
+            ]
+          }
+        }
+      },
+      {
+        "name": "offline_access"
+      },
+      {
+        "name": "uma_authorization"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "souqly-web",
+      "name": "Souqly — frontend et documentation Scalar",
+      "description": "Client public : Authorization Code + PKCE (S256). Aucun secret côté navigateur.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://localhost:4200/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience souqly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "souqly-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "souqly-dev",
+      "name": "Souqly — outils de développement (Bruno, curl)",
+      "description": "DÉVELOPPEMENT UNIQUEMENT : mot de passe direct pour obtenir un jeton en ligne de commande. À retirer du realm de production.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "audience souqly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "souqly-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ordering-service",
+      "name": "Service Ordering (compte technique)",
+      "description": "Client confidentiel en client credentials : appelle /internal/v1/products/prices de Catalog.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ORDERING_CLIENT_SECRET:dev-ordering-secret-change-me}",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience souqly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "souqly-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-ordering-service",
+      "enabled": true,
+      "serviceAccountClientId": "ordering-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "sara",
+      "email": "sara@example.test",
+      "firstName": "Sara",
+      "lastName": "Cliente",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Souqly-Dev-2026!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-souqly",
+        "CUSTOMER"
+      ]
+    },
+    {
+      "username": "fatima",
+      "email": "fatima@example.test",
+      "firstName": "Fatima",
+      "lastName": "Vendeuse",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Souqly-Dev-2026!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-souqly",
+        "VENDOR"
+      ]
+    },
+    {
+      "username": "karim",
+      "email": "karim@example.test",
+      "firstName": "Karim",
+      "lastName": "Vendeur",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Souqly-Dev-2026!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-souqly",
+        "VENDOR"
+      ]
+    },
+    {
+      "username": "admin-souqly",
+      "email": "admin@example.test",
+      "firstName": "Admin",
+      "lastName": "Souqly",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Souqly-Dev-2026!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-souqly",
+        "ADMIN"
+      ]
+    }
+  ]
+}

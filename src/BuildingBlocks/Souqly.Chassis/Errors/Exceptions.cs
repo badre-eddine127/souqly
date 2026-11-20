@@ -15,3 +15,12 @@ public class ConflictException(string message) : Exception(message);
 
 /// <summary>Action interdite pour un utilisateur authentifié : 403.</summary>
 public class ForbiddenException(string message) : Exception(message);
+
+/// <summary>Une dépendance (autre service) est injoignable, trop lente ou son disjoncteur est ouvert : 503 avec Retry-After.</summary>
+public class DependencyUnavailableException(string dependency, int retryAfterSeconds, Exception? inner = null)
+    : Exception($"Le service {dependency} est momentanément indisponible.", inner)
+{
+    public string Dependency { get; } = dependency;
+
+    public int RetryAfterSeconds { get; } = retryAfterSeconds;
+}

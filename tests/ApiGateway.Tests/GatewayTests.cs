@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Souqly.Testing;
 
 namespace ApiGateway.Tests;
 
@@ -20,6 +21,7 @@ public sealed class FakeCatalog : IAsyncLifetime
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         _app = builder.Build();
         _app.MapGet("/api/v1/products", () => Results.Text("catalog:products"));
+        _app.MapPost("/api/v1/products", () => Results.Text("catalog:created"));
         _app.MapGet("/internal/v1/products/prices", () => Results.Text("SECRET"));
         await _app.StartAsync();
         Address = _app.Urls.First();
@@ -49,6 +51,7 @@ public sealed class GatewayFactory : WebApplicationFactory<Program>, IAsyncLifet
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureTestServices(services => services.UseTestJwt());
         builder.UseSetting("ReverseProxy:Clusters:catalog:Destinations:d1:Address", Catalog.Address);
         builder.UseSetting("RateLimiting:PermitsPerSecond", "5");
         builder.UseSetting("RateLimiting:Burst", "5");
@@ -57,12 +60,7 @@ public sealed class GatewayFactory : WebApplicationFactory<Program>, IAsyncLifet
 
 public class GatewayTests(GatewayFactory factory) : IClassFixture<GatewayFactory>
 {
-    private HttpClient ClientAs(string user)
-    {
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-User-Id", user);
-        return client;
-    }
+    private HttpClient ClientAs(string user) => factory.CreateClient().WithToken(TestJwt.Token(user, "VENDOR"));
 
     [Fact]
     public async Task La_passerelle_route_le_catalogue_vers_le_service()
@@ -118,5 +116,40 @@ public class GatewayTests(GatewayFactory factory) : IClassFixture<GatewayFactory
     public async Task Une_route_inconnue_renvoie_404()
     {
         (await ClientAs("unknown-user").GetAsync("/api/v1/nope")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Une_ecriture_sans_jeton_est_refusee_401_par_la_passerelle()
+    {
+        var response = await factory.CreateClient().PostAsync("/api/v1/products", null);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Un_jeton_falsifie_expire_ou_pour_une_autre_audience_est_refuse_401()
+    {
+        foreach (var token in new[]
+                 {
+                     TestJwt.ForgedToken("pirate", "VENDOR"),
+                     TestJwt.ExpiredToken("ancien", "VENDOR"),
+                     TestJwt.WrongAudienceToken("autre-app", "VENDOR"),
+                 })
+        {
+            var response = await factory.CreateClient().WithToken(token).PostAsync("/api/v1/products", null);
+            response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        }
+    }
+
+    [Fact]
+    public async Task Une_ecriture_avec_un_jeton_valide_est_routee()
+    {
+        var response = await ClientAs("writer").PostAsync("/api/v1/products", null);
+        (await response.Content.ReadAsStringAsync()).ShouldBe("catalog:created");
+    }
+
+    [Fact]
+    public async Task La_lecture_du_catalogue_reste_publique()
+    {
+        (await factory.CreateClient().GetStringAsync("/api/v1/products")).ShouldBe("catalog:products");
     }
 }

@@ -19,13 +19,7 @@ builder.Services.AddCartInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CartService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<SetQuantityRequestValidator>();
-builder.Services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
-{
-    doc.Info.Title = "Souqly Cart API";
-    doc.Info.Version = "1.0.0";
-    doc.Servers = [];   // URL relative : la doc fonctionne en direct comme derrière la passerelle
-    return Task.CompletedTask;
-}));
+builder.AddSouqlyOpenApi("Souqly Cart API");
 builder.Services.AddHealthChecks().AddRedis(builder.Configuration.GetConnectionString("Redis")!, name: "redis", tags: ["ready"]);
 
 var app = builder.Build();

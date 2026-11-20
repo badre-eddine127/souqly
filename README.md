@@ -23,9 +23,11 @@ flowchart TB
 | `Catalog` | Produits, catégories, prix | PostgreSQL (`catalog_db`) | Sprint 1 |
 | `Inventory` | Stock, réservations sans survente | PostgreSQL (`inventory_db`) | Sprint 1 |
 | `Cart` | Panier par client (30 jours) | Redis | Sprint 1 |
-| `ApiGateway` | Point d'entrée unique, routage | — | Sprint 1 |
+| `ApiGateway` | Point d'entrée unique, routage, JWT, limite de débit | — | Sprints 1-2 |
 | `Souqly.AppHost` | Lance tout l'environnement en local (Aspire, F5) | — | Sprint 1 |
-| `Ordering`, `Payment`, `Notification` | Saga de commande | PostgreSQL, Kafka | Sprints 2-3 |
+| `Ordering` | Commandes idempotentes, prix lus dans Catalog (résilient) | PostgreSQL (`ordering_db`) | Sprint 2 |
+| Keycloak | Connexion OIDC, rôles, comptes de service ([ADR-003](docs/adr/ADR-003-identite-keycloak.md)) | — | Sprint 2 |
+| `Payment`, `Notification` | Saga de commande | PostgreSQL, Kafka | Sprint 3 |
 | `Shipping`, `Search` | Niveau Pro | PostgreSQL, OpenSearch | Sprint 4 |
 
 ## Prérequis
@@ -41,7 +43,7 @@ flowchart TB
 3. Vérifier que **Souqly.AppHost** est le projet de démarrage (clic droit › *Définir comme projet de démarrage*).
 4. Appuyer sur **F5**.
 
-Aspire démarre PostgreSQL 16 et Redis 7 en conteneurs, crée les bases, lance Catalog, Inventory, Cart puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
+Aspire démarre PostgreSQL 16, Redis 7 et Keycloak 26 en conteneurs, crée les bases, importe le realm `souqly`, lance Catalog, Inventory, Cart, Ordering puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
 
 En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
 
@@ -51,6 +53,24 @@ En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
 cp infra/compose/.env.example infra/compose/.env
 docker compose -f infra/compose/compose.yaml up -d --build --wait
 open http://localhost:8080/scalar     # documentation de l'API via la passerelle
+```
+
+## Comptes de démonstration
+
+Realm Keycloak `souqly` (console : http://localhost:8180, utilisateur `admin`). Mot de passe des comptes : `Souqly-Dev-2026!` (développement uniquement).
+
+| Compte | Rôles | Pour tester |
+| --- | --- | --- |
+| `sara` | CUSTOMER | panier, commandes |
+| `fatima`, `karim` | VENDOR (+ CUSTOMER) | produits, stock, commandes reçues |
+| `admin-souqly` | ADMIN (+ CUSTOMER) | administration |
+
+Dans Scalar, **Authorize › oauth2 › Authorize** ouvre la page de connexion Keycloak (PKCE). En ligne de commande :
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8180/realms/souqly/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=souqly-dev -d username=sara -d 'password=Souqly-Dev-2026!' | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/orders
 ```
 
 ## Développer
@@ -77,6 +97,7 @@ docs/adr · architecture · operations · security · compte-rendu
 ## Documentation
 
 - [Décisions d'architecture (ADR)](docs/adr/)
+- [Modèle de menaces (STRIDE)](docs/security/threat-model.md) et [registre des traitements (loi 09-08)](docs/security/registre-traitements.md)
 - [Compte rendu d'avancement (PDF)](docs/compte-rendu/)
 - [Contribuer](CONTRIBUTING.md)
 

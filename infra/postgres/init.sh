@@ -14,3 +14,4 @@ SQL
 
 create_db catalog "${CATALOG_DB_PASSWORD:?}"
 create_db inventory "${INVENTORY_DB_PASSWORD:?}"
+create_db ordering "${ORDERING_DB_PASSWORD:?}"

@@ -1,8 +1,9 @@
 # Souqly — environnement local complet.
 #   cp infra/compose/.env.example infra/compose/.env
 #   docker compose -f infra/compose/compose.yaml up -d --build --wait
-# Profils : par défaut le socle (bases + services + passerelle). Les briques à venir
-# (Keycloak au sprint 2, Kafka au sprint 3, observabilité au sprint 4) ont leur propre profil.
+# Socle : bases, Keycloak, services, passerelle. Les briques à venir (Kafka au sprint 3,
+# observabilité au sprint 4) auront leur propre profil.
+# Comptes de démonstration (realm souqly) : sara (client), fatima et karim (vendeurs), admin-souqly.
 name: souqly
 
 x-service-defaults: &service-defaults
@@ -10,7 +11,9 @@ x-service-defaults: &service-defaults
   env_file: .env
   environment: &service-env
     ASPNETCORE_ENVIRONMENT: Development
-    Authentication__Mode: DevHeaders
+    # Les jetons sont émis pour http://localhost:8180 (navigateur) ; les services lisent les clés via le réseau interne.
+    Authentication__Authority: http://localhost:8180/realms/souqly
+    Authentication__MetadataAddress: http://keycloak:8080/realms/souqly/.well-known/openid-configuration
     Database__MigrateOnStartup: "true"
   healthcheck:
     interval: 10s
@@ -28,6 +31,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
       CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
       INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD}
+      ORDERING_DB_PASSWORD: ${ORDERING_DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
@@ -53,6 +57,31 @@ services:
       retries: 10
     mem_limit: 128m
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?définir KEYCLOAK_ADMIN_PASSWORD dans .env}
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      ORDERING_CLIENT_SECRET: ${ORDERING_CLIENT_SECRET}
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ../keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8180:8080"   # page de connexion (navigateur) et émetteur des jetons
+    healthcheck:
+      # L'image n'a ni curl ni wget : requête HTTP brute sur le port de gestion.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+    mem_limit: 768m
+
   catalog:
     <<: *service-defaults
     build:
@@ -66,6 +95,7 @@ services:
       test: ["CMD", "dotnet", "Souqly.Catalog.Api.dll", "--healthcheck"]
     depends_on:
       postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
 
   inventory:
     <<: *service-defaults
@@ -80,6 +110,7 @@ services:
       test: ["CMD", "dotnet", "Souqly.Inventory.Api.dll", "--healthcheck"]
     depends_on:
       postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
 
   cart:
     <<: *service-defaults
@@ -94,6 +125,26 @@ services:
       test: ["CMD", "dotnet", "Souqly.Cart.Api.dll", "--healthcheck"]
     depends_on:
       redis: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
+  ordering:
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Ordering/Souqly.Ordering.Api/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-ordering:${SOUQLY_VERSION:-dev}
+    environment:
+      <<: *service-env
+      ConnectionStrings__OrderDb: Host=postgres;Database=ordering_db;Username=ordering;Password=${ORDERING_DB_PASSWORD}
+      Catalog__BaseAddress: http://catalog:8080
+      ServiceAccount__TokenEndpoint: http://keycloak:8080/realms/souqly/protocol/openid-connect/token
+      ServiceAccount__ClientSecret: ${ORDERING_CLIENT_SECRET}
+    healthcheck:
+      test: ["CMD", "dotnet", "Souqly.Ordering.Api.dll", "--healthcheck"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+      catalog: { condition: service_healthy }
 
   gateway:
     <<: *service-defaults
@@ -106,6 +157,7 @@ services:
       ReverseProxy__Clusters__catalog__Destinations__d1__Address: http://catalog:8080
       ReverseProxy__Clusters__inventory__Destinations__d1__Address: http://inventory:8080
       ReverseProxy__Clusters__cart__Destinations__d1__Address: http://cart:8080
+      ReverseProxy__Clusters__ordering__Destinations__d1__Address: http://ordering:8080
     healthcheck:
       test: ["CMD", "dotnet", "Souqly.ApiGateway.dll", "--healthcheck"]
     ports:
@@ -114,7 +166,9 @@ services:
       catalog: { condition: service_healthy }
       inventory: { condition: service_healthy }
       cart: { condition: service_healthy }
+      ordering: { condition: service_healthy }
 
 volumes:
   postgres-data:
   redis-data:
+  keycloak-data:

@@ -26,6 +26,7 @@ public sealed class ProblemDetailsExceptionHandler(
             ForbiddenException => Problem(StatusCodes.Status403Forbidden, "forbidden", "Action interdite", exception.Message),
             ConflictException => Problem(StatusCodes.Status409Conflict, "conflict", "Conflit d'état", exception.Message),
             BusinessRuleException br => Problem(StatusCodes.Status422UnprocessableEntity, br.Code, "Règle métier non respectée", br.Message),
+            DependencyUnavailableException du => Unavailable(httpContext, du),
             BadHttpRequestException => Problem(StatusCodes.Status400BadRequest, "bad-request", "Requête invalide", "Le corps ou les paramètres de la requête sont mal formés."),
             _ => null,
         };
@@ -52,6 +53,14 @@ public sealed class ProblemDetailsExceptionHandler(
         Title = title,
         Detail = detail,
     };
+
+    private static ProblemDetails Unavailable(HttpContext httpContext, DependencyUnavailableException e)
+    {
+        httpContext.Response.Headers.RetryAfter = e.RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var problem = Problem(StatusCodes.Status503ServiceUnavailable, "dependency-unavailable", "Service momentanément indisponible", e.Message);
+        problem.Extensions["retryAfterSeconds"] = e.RetryAfterSeconds;
+        return problem;
+    }
 
     private static ValidationProblemDetails Validation(ValidationException exception)
     {

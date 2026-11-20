@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Souqly.Testing;
 
 namespace Catalog.ApiTests;
@@ -20,17 +21,14 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureTestServices(services => services.UseTestJwt());
         builder.UseSetting("ConnectionStrings:CatalogDb", _postgres.ConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
-        builder.UseSetting("Authentication:Mode", "DevHeaders");
     }
 
-    /// <summary>Client HTTP authentifié avec l'identité et les rôles donnés (en-têtes DevHeaders).</summary>
+    /// <summary>Client HTTP authentifié par un JWT de test (format Keycloak) avec l'identité et les rôles donnés.</summary>
     public HttpClient ClientAs(string userId, params string[] roles)
     {
-        var client = CreateClient();
-        client.DefaultRequestHeaders.Add("X-User-Id", userId);
-        client.DefaultRequestHeaders.Add("X-User-Roles", string.Join(',', roles));
-        return client;
+        return CreateClient().WithToken(TestJwt.Token(userId, roles));
     }
 }
