@@ -45,7 +45,7 @@
     <tr><td>Enseignant</td><td>Pr Ihababdelbasset Annaki</td></tr>
     <tr><td>Étudiant</td><td>Badre</td></tr>
     <tr><td>Stack</td><td>.NET 10 LTS, ASP.NET Core, EF Core 10 (Npgsql), PostgreSQL 16 — accord de l'enseignant du 19/11/2026 (ADR-000)</td></tr>
-    <tr><td>Version du document</td><td>v1 · 20/11/2026</td></tr>
+    <tr><td>Version du document</td><td>v2 · 20/11/2026</td></tr>
   </table>
   <div>
     <h3>Synthèse</h3>
@@ -56,6 +56,7 @@
       <tr><td>2. Service Catalog (US-01, US-02, US-03)</td><td>1</td><td class="ok">Terminée</td><td>49 tests verts</td></tr>
       <tr><td>3. Service Inventory et vente flash (US-10, US-11, RG-01, RG-03)</td><td>1</td><td class="ok">Terminée</td><td>500 achats → 0 survente</td></tr>
       <tr><td>4. Cart (Redis), passerelle YARP, Docker Compose (US-05)</td><td>1</td><td class="ok">Terminée</td><td>Parcours via :8080</td></tr>
+      <tr><td>5. Lancement par F5 dans Visual Studio (Aspire)</td><td>1</td><td class="ok">Terminée</td><td>4 services « Running »</td></tr>
       <tr><td><b>Total</b></td><td></td><td></td><td><b>93 tests verts</b></td></tr>
     </table>
   </div>
@@ -254,6 +255,42 @@
     <li>Service Ordering : création de commande avec instantané des prix (client HTTP + Polly) et clé d'idempotence.</li>
     <li>Images publiées sur GHCR, gitleaks et Trivy dans la CI, modèle de menaces STRIDE et registre 09-08.</li>
   </ol>
+</section>
+
+<!-- ======================= TÂCHE 5 ======================= -->
+<section class="task">
+  <h2>Tâche 5 — Lancer toute la plateforme avec F5 (Aspire) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Démarrer tout l'environnement d'un seul clic sur <b>Run (F5)</b> dans Visual Studio : bases de données, cache, services et passerelle, avec le débogueur attaché à chacun.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td><code>Souqly.AppHost</code></td><td>Projet de démarrage Aspire 13.6.5 qui décrit en C# toutes les ressources : PostgreSQL 16 (bases <code>catalog_db</code> et <code>inventory_db</code>), Redis 7, Catalog, Inventory, Cart et la passerelle.</td></tr>
+    <tr><td>Ordre de démarrage</td><td>Chaque service attend que sa base soit prête ; la passerelle attend que les trois services soient sains (<code>/health/ready</code>).</td></tr>
+    <tr><td>Configuration automatique</td><td>Aspire injecte les chaînes de connexion et les adresses des services dans la passerelle : aucun réglage à faire à la main.</td></tr>
+    <tr><td>Conteneurs persistants</td><td>PostgreSQL et Redis restent démarrés entre deux F5 : les lancements suivants prennent quelques secondes et les données sont conservées.</td></tr>
+    <tr><td>Traces OpenTelemetry</td><td>Ajoutées au chassis : chaque requête se suit de la passerelle jusqu'à la requête SQL dans le tableau de bord (préparation de US-19).</td></tr>
+    <tr><td>ADR-012</td><td>Aspire pour le développement local, Docker Compose reste la référence pour la démo et le déploiement.</td></tr>
+  </table>
+
+  <figure>
+    <img src="img/aspire-resources.png" alt="Tableau de bord Aspire : ressources">
+    <figcaption>Figure 11 — Après un seul lancement, les quatre services sont « Running » ; la ligne <i>gateway</i> ouvre directement la documentation de l'API. Capture faite avec des serveurs PostgreSQL/Redis existants ; sur un poste avec Docker Desktop, les ressources <i>postgres</i> et <i>Redis</i> apparaissent aussi.</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/aspire-traces.png" alt="Tableau de bord Aspire : traces">
+    <figcaption>Figure 12 — Traces distribuées : un <code>POST</code> sur la passerelle traverse gateway → catalog → base de données, avec la durée de chaque étape.</figcaption>
+  </figure>
+  <h3>Mode d'emploi</h3>
+  <ol>
+    <li>Lancer Docker Desktop.</li>
+    <li>Ouvrir <code>Souqly.slnx</code> dans Visual Studio ; <code>Souqly.AppHost</code> est le projet de démarrage.</li>
+    <li>Appuyer sur F5 : le tableau de bord s'ouvre, puis cliquer sur « Documentation de l'API (Scalar) ».</li>
+  </ol>
+  <div class="note"><b>À vérifier sur ton PC.</b> Le lancement a été testé de bout en bout avec des serveurs PostgreSQL et Redis existants (mode prévu par l'AppHost). Le mode par défaut, avec les conteneurs lancés par Aspire, n'a pas pu être exécuté ici faute d'accès aux registres Docker. Les 93 tests restent verts après l'ajout de la télémétrie.</div>
 </section>
 
 <!--NEXT-TASKS-->

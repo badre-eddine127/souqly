@@ -16,6 +16,7 @@ public static class ServiceDefaults
 {
     public static IHostApplicationBuilder AddSouqlyDefaults(this IHostApplicationBuilder builder)
     {
+        builder.AddSouqlyTelemetry();
         builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ProblemDetailsExceptionHandler.Customize);
         builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 

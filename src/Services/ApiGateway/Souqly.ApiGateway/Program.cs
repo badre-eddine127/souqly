@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Scalar.AspNetCore;
+using Souqly.Chassis;
 using Souqly.Chassis.Errors;
 
 if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
@@ -8,6 +9,7 @@ if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddSouqlyTelemetry();
 
 // Passerelle : point d'entrée unique. Elle route, limite le débit et ajoute les en-têtes de sécurité.
 // Aucune logique métier. La validation JWT (Keycloak) s'ajoute au sprint 2 ; chaque service garde ses propres règles.

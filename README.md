@@ -24,6 +24,7 @@ flowchart TB
 | `Inventory` | Stock, réservations sans survente | PostgreSQL (`inventory_db`) | Sprint 1 |
 | `Cart` | Panier par client (30 jours) | Redis | Sprint 1 |
 | `ApiGateway` | Point d'entrée unique, routage | — | Sprint 1 |
+| `Souqly.AppHost` | Lance tout l'environnement en local (Aspire, F5) | — | Sprint 1 |
 | `Ordering`, `Payment`, `Notification` | Saga de commande | PostgreSQL, Kafka | Sprints 2-3 |
 | `Shipping`, `Search` | Niveau Pro | PostgreSQL, OpenSearch | Sprint 4 |
 
@@ -33,7 +34,18 @@ flowchart TB
 - Docker Desktop (Compose v2)
 - 16 Go de RAM recommandés
 
-## Démarrer en 3 commandes
+## Démarrer depuis Visual Studio (F5)
+
+1. Lancer **Docker Desktop**.
+2. Ouvrir `Souqly.slnx` dans Visual Studio 2026 (ou 2022 17.14+).
+3. Vérifier que **Souqly.AppHost** est le projet de démarrage (clic droit › *Définir comme projet de démarrage*).
+4. Appuyer sur **F5**.
+
+Aspire démarre PostgreSQL 16 et Redis 7 en conteneurs, crée les bases, lance Catalog, Inventory, Cart puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
+
+En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
+
+## Démarrer avec Docker Compose (démo, CI)
 
 ```bash
 cp infra/compose/.env.example infra/compose/.env

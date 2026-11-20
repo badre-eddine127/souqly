@@ -1,0 +1,26 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
+
+  <!-- Projet de démarrage de Visual Studio : F5 lance PostgreSQL, Redis, les services et la passerelle,
+       puis ouvre le tableau de bord Aspire (état, logs, traces). Outil de développement uniquement :
+       le déploiement reste Docker Compose / Kubernetes. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <UserSecretsId>souqly-apphost</UserSecretsId>
+    <!-- Le bundle de la CLI Aspire n'est pas nécessaire pour F5 dans Visual Studio. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Services\Catalog\Souqly.Catalog.Api\Souqly.Catalog.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Inventory\Souqly.Inventory.Api\Souqly.Inventory.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Cart\Souqly.Cart.Api\Souqly.Cart.Api.csproj" />
+    <ProjectReference Include="..\..\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" />
+  </ItemGroup>
+
+</Project>
