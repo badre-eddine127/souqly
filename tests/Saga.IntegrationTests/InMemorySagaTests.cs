@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Xunit.Abstractions;
 using Souqly.Messaging;
+using Xunit.Abstractions;
 
 namespace Saga.IntegrationTests;
 
