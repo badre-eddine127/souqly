@@ -18,7 +18,7 @@ COPY src/Services/Catalog/ src/Services/Catalog/
 RUN dotnet publish src/Services/Catalog/Souqly.Catalog.Api/Souqly.Catalog.Api.csproj -c Release -o /app --no-restore /p:UseAppHost=false
 
 # 3. Image finale minimale, utilisateur non root.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_RUNNING_IN_CONTAINER=true \
