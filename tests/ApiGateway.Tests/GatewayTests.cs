@@ -81,15 +81,16 @@ public class GatewayTests(GatewayFactory factory) : IClassFixture<GatewayFactory
     public async Task Au_dela_du_quota_la_passerelle_repond_429_avec_Retry_After()
     {
         var client = ClientAs("greedy-user");
-        var statuses = new List<HttpStatusCode>();
+        var responses = new List<HttpResponseMessage>();
         for (var i = 0; i < 12; i++)
         {
-            statuses.Add((await client.GetAsync("/api/v1/products")).StatusCode);
+            responses.Add(await client.GetAsync("/api/v1/products"));
         }
 
-        statuses.ShouldContain(HttpStatusCode.TooManyRequests);
-        statuses.Take(5).ShouldAllBe(s => s == HttpStatusCode.OK);
-        var rejected = await client.GetAsync("/api/v1/products");
+        responses.Take(5).ShouldAllBe(r => r.StatusCode == HttpStatusCode.OK);
+        // On vérifie l'en-tête sur une réponse réellement refusée : une requête supplémentaire pourrait
+        // passer si le quota s'est rechargé entre-temps (machine de CI lente), ce qui rendait le test instable.
+        var rejected = responses.First(r => r.StatusCode == HttpStatusCode.TooManyRequests);
         rejected.Headers.RetryAfter.ShouldNotBeNull();
     }
 
