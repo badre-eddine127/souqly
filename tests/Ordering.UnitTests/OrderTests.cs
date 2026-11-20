@@ -52,7 +52,7 @@ public class OrderTests
     {
         var order = NewOrder();
         order.MarkStockReserved(Now);
-        order.Confirm(Now);
+        order.Confirm(Guid.NewGuid(), Now);
         order.Ship(Now);
         order.Deliver(Now);
         order.Status.ShouldBe(OrderStatus.Delivered);
@@ -72,12 +72,12 @@ public class OrderTests
     {
         var confirmed = NewOrder();
         confirmed.MarkStockReserved(Now);
-        confirmed.Confirm(Now);
+        confirmed.Confirm(Guid.NewGuid(), Now);
         Should.NotThrow(() => confirmed.Cancel("CUSTOMER_REQUEST", Now));
 
         var shipped = NewOrder();
         shipped.MarkStockReserved(Now);
-        shipped.Confirm(Now);
+        shipped.Confirm(Guid.NewGuid(), Now);
         shipped.Ship(Now);
         Should.Throw<IllegalOrderTransitionException>(() => shipped.Cancel("CUSTOMER_REQUEST", Now));
         shipped.Status.ShouldBe(OrderStatus.Shipped);
@@ -87,11 +87,31 @@ public class OrderTests
     public void Une_transition_illegale_est_refusee()
     {
         var order = NewOrder();
-        Should.Throw<IllegalOrderTransitionException>(() => order.Confirm(Now));   // il faut d'abord le stock
+        Should.Throw<IllegalOrderTransitionException>(() => order.Confirm(Guid.NewGuid(), Now));   // il faut d'abord le stock
         Should.Throw<IllegalOrderTransitionException>(() => order.Ship(Now));
         var rejected = NewOrder();
         rejected.Reject("OUT_OF_STOCK", Now);
         Should.Throw<IllegalOrderTransitionException>(() => rejected.Cancel("x", Now));
+    }
+
+    [Fact]
+    public void Paiement_refuse_une_commande_au_stock_reserve_est_rejetee()
+    {
+        var order = NewOrder();
+        order.MarkStockReserved(Now);
+        order.Reject("PAYMENT_DECLINED", Now);
+        order.Status.ShouldBe(OrderStatus.Rejected);
+        order.PaymentId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void La_confirmation_garde_la_reference_du_paiement()
+    {
+        var order = NewOrder();
+        var payment = Guid.NewGuid();
+        order.MarkStockReserved(Now);
+        order.Confirm(payment, Now);
+        order.PaymentId.ShouldBe(payment);
     }
 
     [Fact]

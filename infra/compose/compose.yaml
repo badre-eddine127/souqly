@@ -1,8 +1,8 @@
 # Souqly — environnement local complet.
 #   cp infra/compose/.env.example infra/compose/.env
 #   docker compose -f infra/compose/compose.yaml up -d --build --wait
-# Socle : bases, Keycloak, services, passerelle. Les briques à venir (Kafka au sprint 3,
-# observabilité au sprint 4) auront leur propre profil.
+# Socle : bases, Keycloak, Kafka (KRaft), services, passerelle. L'observabilité (sprint 4) aura son profil.
+# Kafka UI (profil « tools ») : docker compose --profile tools up -d  →  http://localhost:8085
 # Comptes de démonstration (realm souqly) : sara (client), fatima et karim (vendeurs), admin-souqly.
 name: souqly
 
@@ -14,6 +14,7 @@ x-service-defaults: &service-defaults
     # Les jetons sont émis pour http://localhost:8180 (navigateur) ; les services lisent les clés via le réseau interne.
     Authentication__Authority: http://localhost:8180/realms/souqly
     Authentication__MetadataAddress: http://keycloak:8080/realms/souqly/.well-known/openid-configuration
+    ConnectionStrings__Kafka: kafka:9092
     Database__MigrateOnStartup: "true"
   healthcheck:
     interval: 10s
@@ -32,6 +33,8 @@ services:
       CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
       INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD}
       ORDERING_DB_PASSWORD: ${ORDERING_DB_PASSWORD}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
@@ -82,6 +85,44 @@ services:
       retries: 12
     mem_limit: 768m
 
+  kafka:
+    image: apache/kafka:4.1.1
+    restart: unless-stopped
+    environment:
+      # Un seul nœud KRaft (contrôleur + broker), sans ZooKeeper.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      start_period: 30s
+      retries: 10
+    mem_limit: 1g
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    profiles: ["tools"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: souqly
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8085:8080"
+    depends_on:
+      kafka: { condition: service_healthy }
+
   catalog:
     <<: *service-defaults
     build:
@@ -111,6 +152,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+      kafka: { condition: service_healthy }
 
   cart:
     <<: *service-defaults
@@ -144,7 +186,40 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+      kafka: { condition: service_healthy }
       catalog: { condition: service_healthy }
+
+  payment:
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Payment/Souqly.Payment.Api/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-payment:${SOUQLY_VERSION:-dev}
+    environment:
+      <<: *service-env
+      ConnectionStrings__PaymentDb: Host=postgres;Database=payment_db;Username=payment;Password=${PAYMENT_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "dotnet", "Souqly.Payment.Api.dll", "--healthcheck"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  notification:
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Notification/Souqly.Notification.Api/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-notification:${SOUQLY_VERSION:-dev}
+    environment:
+      <<: *service-env
+      ConnectionStrings__NotificationDb: Host=postgres;Database=notification_db;Username=notification;Password=${NOTIFICATION_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "dotnet", "Souqly.Notification.Api.dll", "--healthcheck"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+      kafka: { condition: service_healthy }
 
   gateway:
     <<: *service-defaults
@@ -158,6 +233,8 @@ services:
       ReverseProxy__Clusters__inventory__Destinations__d1__Address: http://inventory:8080
       ReverseProxy__Clusters__cart__Destinations__d1__Address: http://cart:8080
       ReverseProxy__Clusters__ordering__Destinations__d1__Address: http://ordering:8080
+      ReverseProxy__Clusters__payment__Destinations__d1__Address: http://payment:8080
+      ReverseProxy__Clusters__notification__Destinations__d1__Address: http://notification:8080
     healthcheck:
       test: ["CMD", "dotnet", "Souqly.ApiGateway.dll", "--healthcheck"]
     ports:
@@ -167,8 +244,11 @@ services:
       inventory: { condition: service_healthy }
       cart: { condition: service_healthy }
       ordering: { condition: service_healthy }
+      payment: { condition: service_healthy }
+      notification: { condition: service_healthy }
 
 volumes:
   postgres-data:
   redis-data:
   keycloak-data:
+  kafka-data:

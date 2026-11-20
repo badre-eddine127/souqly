@@ -36,6 +36,17 @@ public sealed class Reservation
 
     public void MarkExpired() => Close(ReservationStatus.Expired);
 
+    /// <summary>Commande annulée après confirmation : les unités sorties reviennent en stock.</summary>
+    public void MarkRestocked()
+    {
+        if (Status != ReservationStatus.Committed)
+        {
+            throw new InvalidOperationException($"La réservation {Id} est {Status} : seule une réservation consommée peut être remise en stock.");
+        }
+
+        Status = ReservationStatus.Restocked;
+    }
+
     private void Close(ReservationStatus next)
     {
         if (!IsActive)
@@ -53,4 +64,5 @@ public enum ReservationStatus
     Committed,
     Released,
     Expired,
+    Restocked,
 }

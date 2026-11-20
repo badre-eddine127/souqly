@@ -2,8 +2,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Xunit;
 
-namespace Ordering.ApiTests;
+namespace Souqly.Testing;
 
 /// <summary>
 /// Faux Catalog + faux Keycloak sur un vrai port HTTP : on teste le VRAI client HTTP d'Ordering
@@ -27,12 +28,23 @@ public sealed class FakeCatalogServer : IAsyncLifetime
 
     public string Address { get; private set; } = string.Empty;
 
-    private static readonly Dictionary<long, object> Products = new()
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<long, object> _products = new()
     {
         [1] = new { productId = 1, vendorId = "vendor-fatima", name = "Tapis berbère", price = new { amount = "1200.00", currency = "MAD" }, purchasable = true },
         [2] = new { productId = 2, vendorId = "vendor-karim", name = "Huile d'argan 250 ml", price = new { amount = "189.90", currency = "MAD" }, purchasable = true },
         [3] = new { productId = 3, vendorId = "vendor-karim", name = "Tajine (brouillon)", price = new { amount = "240.00", currency = "MAD" }, purchasable = false },
     };
+
+    /// <summary>Ajoute (ou remplace) un produit du faux catalogue.</summary>
+    public void AddProduct(long productId, string vendorId, string name, decimal price, bool purchasable = true) =>
+        _products[productId] = new
+        {
+            productId,
+            vendorId,
+            name,
+            price = new { amount = price.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), currency = "MAD" },
+            purchasable,
+        };
 
     public async Task InitializeAsync()
     {
@@ -59,7 +71,7 @@ public sealed class FakeCatalogServer : IAsyncLifetime
                     break;
             }
 
-            var found = ids.Split(',').Select(long.Parse).Where(Products.ContainsKey).Select(id => Products[id]).ToList();
+            var found = ids.Split(',').Select(long.Parse).Where(_products.ContainsKey).Select(id => _products[id]).ToList();
             return Results.Text(JsonSerializer.Serialize(found), "application/json");
         });
 

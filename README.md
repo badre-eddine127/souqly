@@ -27,7 +27,9 @@ flowchart TB
 | `Souqly.AppHost` | Lance tout l'environnement en local (Aspire, F5) | — | Sprint 1 |
 | `Ordering` | Commandes idempotentes, prix lus dans Catalog (résilient) | PostgreSQL (`ordering_db`) | Sprint 2 |
 | Keycloak | Connexion OIDC, rôles, comptes de service ([ADR-003](docs/adr/ADR-003-identite-keycloak.md)) | — | Sprint 2 |
-| `Payment`, `Notification` | Saga de commande | PostgreSQL, Kafka | Sprint 3 |
+| `Payment` | Paiement simulé (plafond 10 000 MAD), remboursement | PostgreSQL (`payment_db`) | Sprint 3 |
+| `Notification` | Messages au client et aux vendeurs | PostgreSQL (`notification_db`) | Sprint 3 |
+| Kafka (KRaft) | Saga de commande : outbox, inbox, DLQ ([ADR-004](docs/adr/ADR-004-kafka-outbox-inbox.md), [ADR-005](docs/adr/ADR-005-saga-orchestree.md)) | — | Sprint 3 |
 | `Shipping`, `Search` | Niveau Pro | PostgreSQL, OpenSearch | Sprint 4 |
 
 ## Prérequis
@@ -43,7 +45,7 @@ flowchart TB
 3. Vérifier que **Souqly.AppHost** est le projet de démarrage (clic droit › *Définir comme projet de démarrage*).
 4. Appuyer sur **F5**.
 
-Aspire démarre PostgreSQL 16, Redis 7 et Keycloak 26 en conteneurs, crée les bases, importe le realm `souqly`, lance Catalog, Inventory, Cart, Ordering puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
+Aspire démarre PostgreSQL 16, Redis 7, Keycloak 26 et Kafka en conteneurs, crée les bases, importe le realm `souqly`, lance les six services puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
 
 En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
 
@@ -54,6 +56,16 @@ cp infra/compose/.env.example infra/compose/.env
 docker compose -f infra/compose/compose.yaml up -d --build --wait
 open http://localhost:8080/scalar     # documentation de l'API via la passerelle
 ```
+
+## Suivre une commande à travers Kafka
+
+1. Passer une commande (Scalar › ordering › `POST /api/v1/orders`) : réponse **202**, statut `PENDING`.
+2. Relire la commande quelques instants plus tard : `CONFIRMED` (ou `REJECTED` avec la raison).
+3. **Kafka UI** (lien `kafka-ui` dans le tableau de bord Aspire, ou http://localhost:8085) : topics `souqly.*.v1`, un message par étape, clé = numéro de commande.
+4. **Traces** (onglet Traces d'Aspire) : une seule trace va de la requête HTTP jusqu'à la confirmation, à travers les quatre services.
+5. Pour voir la compensation : commander pour plus de 10 000 MAD → paiement refusé, stock rendu ; ou annuler une commande confirmée → remise en stock et remboursement.
+
+Contrat des événements : [`contracts/asyncapi/souqly.yaml`](contracts/asyncapi/souqly.yaml).
 
 ## Comptes de démonstration
 

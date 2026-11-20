@@ -49,8 +49,18 @@ internal sealed class StockStore(InventoryDbContext db) : IStockStore
 
     public void AddReservation(Reservation reservation) => db.Reservations.Add(reservation);
 
+    public async Task RestockAsync(long productId, int quantity, CancellationToken ct) =>
+        await db.StockItems
+            .Where(s => s.ProductId == productId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.OnHand, x => x.OnHand + quantity), ct);
+
     public async Task<bool> InTransactionAsync(Func<Task<bool>> work, CancellationToken ct)
     {
+        if (db.Database.CurrentTransaction is { } outer)
+        {
+            return await InSavepointAsync(outer, work, ct);
+        }
+
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         try
         {
@@ -67,6 +77,34 @@ internal sealed class StockStore(InventoryDbContext db) : IStockStore
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             await transaction.RollbackAsync(ct);
+            db.ChangeTracker.Clear();
+            throw new DuplicateReservationException(e);
+        }
+    }
+
+    /// <summary>
+    /// Appelé depuis un consommateur Kafka : la transaction de l'inbox est déjà ouverte. Un point de sauvegarde
+    /// permet d'annuler uniquement la réservation (tout ou rien) sans perdre la trace « message traité ».
+    /// </summary>
+    private async Task<bool> InSavepointAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction outer, Func<Task<bool>> work, CancellationToken ct)
+    {
+        const string savepoint = "inventory_work";
+        await outer.CreateSavepointAsync(savepoint, ct);
+        try
+        {
+            if (!await work())
+            {
+                await outer.RollbackToSavepointAsync(savepoint, ct);
+                db.ChangeTracker.Clear();
+                return false;
+            }
+
+            await outer.ReleaseSavepointAsync(savepoint, ct);
+            return true;
+        }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            await outer.RollbackToSavepointAsync(savepoint, ct);
             db.ChangeTracker.Clear();
             throw new DuplicateReservationException(e);
         }

@@ -367,6 +367,71 @@
   </table>
 </section>
 
+<!-- ======================= TÂCHE 8 ======================= -->
+<section class="task">
+  <h2>Tâche 8 — Kafka et messagerie fiable (Sprint 3) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Faire communiquer les services par événements Kafka, sans jamais perdre un message ni en traiter un deux fois, même en cas de panne (ADR-004).</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Brique <code>Souqly.Messaging</code></td><td>Partagée par les quatre services de la saga. Client officiel Confluent.Kafka : producteur <code>acks=all</code> et idempotent, un groupe de consommateurs par service, offset validé après traitement.</td></tr>
+    <tr><td>Outbox transactionnelle</td><td>L'événement est écrit dans la table <code>outbox_messages</code> par le <b>même</b> SaveChanges que la commande : pas de commande sans événement, pas d'événement sans commande. Un publieur l'envoie ensuite à Kafka, dans l'ordre, et le garde en base si Kafka est arrêté.</td></tr>
+    <tr><td>Inbox idempotente</td><td>Chaque message porte un identifiant ; la table <code>inbox_messages</code> retient ceux déjà traités. Kafka livre « au moins une fois », Souqly applique « exactement une fois ».</td></tr>
+    <tr><td>Réessais et DLQ</td><td>3 essais (200 ms puis 400 ms), puis copie dans <code>&lt;topic&gt;.dlq</code> : un message illisible ne bloque pas les autres commandes.</td></tr>
+    <tr><td>Traçabilité</td><td>En-tête W3C <code>traceparent</code> : une commande est suivie dans une seule trace, de la requête HTTP jusqu'à la confirmation (US-19).</td></tr>
+    <tr><td>Contrat</td><td><code>contracts/asyncapi/souqly.yaml</code> (AsyncAPI 3.0) : 3 topics, 10 événements. Clé de message = n° de commande, donc ordre garanti par commande.</td></tr>
+    <tr><td>F5 et Compose</td><td>Kafka (KRaft, sans ZooKeeper) et Kafka UI ajoutés à l'AppHost Aspire et à Docker Compose.</td></tr>
+  </table>
+
+  <div class="note"><b>Limite de l'environnement de travail.</b> Docker et les sites Apache ne sont pas accessibles depuis l'espace de développement utilisé pour ce rapport : les tests y tournent avec un broker en mémoire qui imite Kafka (groupes, ordre, relivraisons). Les mêmes scénarios s'exécutent sur un vrai Kafka (Testcontainers) dans la CI GitHub, et sur le PC avec F5.</div>
+</section>
+
+<!-- ======================= TÂCHE 9 ======================= -->
+<section class="task">
+  <h2>Tâche 9 — Saga de commande, Payment et Notification (US-10 à US-13) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Mener chaque commande jusqu'à CONFIRMED ou REJECTED à travers trois bases différentes, avec une compensation pour chaque étape qui peut être défaite (ADR-005).</p>
+  <figure>
+    <img src="img/s3-saga-sequence.png" alt="Diagramme de séquence de la saga">
+    <figcaption>Figure 17 — Saga orchestrée par Ordering : réservation du stock, paiement, confirmation ; en cas de refus de paiement, Inventory libère la réservation (compensation).</figcaption>
+  </figure>
+</section>
+
+<section class="task">
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Service</th><th>Rôle dans la saga</th></tr>
+    <tr><td>Ordering</td><td>Orchestrateur : chaque réponse fait avancer la machine à états (PENDING → STOCK_RESERVED → CONFIRMED, ou REJECTED) et publie l'étape suivante. Une réponse tardive pour une commande annulée est ignorée.</td></tr>
+    <tr><td>Inventory</td><td>Réserve tout ou rien (ADR-007), sort le stock à la confirmation, libère en cas de refus, et <b>remet en stock</b> si une commande confirmée est annulée. Les points de sauvegarde PostgreSQL permettent d'annuler une réservation sans perdre la trace « message traité ».</td></tr>
+    <tr><td>Payment (nouveau)</td><td>Paiement simulé, aucune donnée de carte : refusé au-delà de 10 000 MAD pour démontrer la compensation. Un seul paiement par commande (index unique) ; remboursement à l'annulation. <code>GET /api/v1/payments/{orderId}</code>.</td></tr>
+    <tr><td>Notification (nouveau)</td><td>Le client est prévenu de chaque issue ; chaque vendeur reçoit seulement ses lignes (RG-05). E-mail simulé dans les journaux. <code>GET /api/v1/notifications</code>.</td></tr>
+  </table>
+  <figure>
+    <img src="img/s3-event-chain.png" alt="Messages Kafka d'une commande">
+    <figcaption>Figure 18 — Les cinq messages d'une commande, publiés par trois services, dans l'ordre et avec le même identifiant de trace.</figcaption>
+  </figure>
+  <div class="note"><b>Bug trouvé par les tests.</b> Notification formatait les montants avec la culture <code>fr-FR</code>, absente des images .NET en mode « invariant ». Les messages <code>OrderConfirmed</code> sont partis en DLQ après 3 essais (preuve que la DLQ fonctionne), et le test a échoué. Correction : format numérique écrit explicitement.</div>
+</section>
+
+<section class="task">
+  <figure>
+    <img src="img/s3-tests.png" alt="Tests de la saga">
+    <figcaption>Figure 19 — Les scénarios de la saga sur les quatre services réels : succès, rupture de stock, paiement refusé avec compensation, annulation avec remise en stock et remboursement, vente flash (20 clients pour 5 unités : 5 confirmées, 15 refusées, aucune survente), message reçu deux fois, message illisible, broker en panne.</figcaption>
+  </figure>
+  <h3>Documentation</h3>
+  <ul>
+    <li><b>ADR-004</b> Kafka avec outbox et inbox (et pourquoi pas MassTransit, devenu payant en v9) ; <b>ADR-005</b> saga orchestrée ; <b>ADR-013</b> un seul projet pour les services simples.</li>
+    <li>Modèle de menaces mis à jour (messages forgés, broker en panne, message empoisonné) et registre 09-08 (paiements, notifications, événements Kafka).</li>
+  </ul>
+  <h3>Bilan du Sprint 3</h3>
+  <table class="t">
+    <tr><th>Indicateur</th><th>Valeur</th></tr>
+    <tr><td>Tests</td><td><b>140 verts</b> dans l'espace de travail (124 → 140), plus <b>7 tests sur vrai Kafka</b> exécutés dans la CI</td></tr>
+    <tr><td>Services</td><td>6 microservices + passerelle ; infrastructure : PostgreSQL, Redis, Keycloak, Kafka — tout démarre avec F5</td></tr>
+    <tr><td>Prochaine étape (Sprint 4)</td><td>Observabilité (Grafana, Prometheus, alertes), sécurisation de Kafka (SASL/ACL), déploiement Kubernetes, tests de charge.</td></tr>
+  </table>
+</section>
+
 <!--NEXT-TASKS-->
 
 </body>

@@ -15,3 +15,5 @@ SQL
 create_db catalog "${CATALOG_DB_PASSWORD:?}"
 create_db inventory "${INVENTORY_DB_PASSWORD:?}"
 create_db ordering "${ORDERING_DB_PASSWORD:?}"
+create_db payment "${PAYMENT_DB_PASSWORD:?}"
+create_db notification "${NOTIFICATION_DB_PASSWORD:?}"

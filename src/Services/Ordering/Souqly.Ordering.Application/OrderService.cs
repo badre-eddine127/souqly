@@ -3,19 +3,21 @@ using System.Text;
 using Souqly.Chassis.Errors;
 using Souqly.Chassis.Paging;
 using Souqly.Chassis.Security;
+using Souqly.Messaging;
 using Souqly.Ordering.Domain;
 
 namespace Souqly.Ordering.Application;
 
 /// <summary>Cas d'usage de la commande (US-06 création, US-07 suivi, US-08 annulation, US-09 idempotence).</summary>
-public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, TimeProvider clock)
+public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, IEventPublisher events, TimeProvider clock)
 {
     /// <summary>
     /// Crée une commande en attente. Étapes :
     /// 1. même clé d'idempotence déjà vue → on renvoie la commande existante (aucun doublon) ;
     /// 2. instantané des prix lu dans le catalogue, HORS transaction (un appel réseau ne tient pas de verrou en base) ;
     /// 3. la commande et la clé sont enregistrées ensemble (un seul SaveChanges : tout ou rien).
-    /// La saga (réservation du stock puis paiement) démarre au sprint 3 via l'outbox.
+    /// L'événement OrderPlaced est écrit dans l'outbox par ce même SaveChanges : il démarre la saga
+    /// (réservation du stock, puis paiement) seulement si la commande est bien enregistrée.
     /// </summary>
     public async Task<PlaceOrderResult> PlaceAsync(CurrentUser customer, Guid idempotencyKey, PlaceOrderRequest request, CancellationToken ct)
     {
@@ -57,6 +59,7 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
         }
 
         orders.Add(order, new IdempotencyRecord(customer.Id, idempotencyKey, hash, order.Id, now));
+        events.Publish(Topics.OrderingEvents, order.Id.ToString(), OrderEvents.Placed(order));
         try
         {
             await orders.SaveChangesAsync(ct);
@@ -96,6 +99,8 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
             throw new ConflictException(e.Message);
         }
 
+        // Compensations : Inventory rend le stock, Payment rembourse si le paiement était passé.
+        events.Publish(Topics.OrderingEvents, order.Id.ToString(), new OrderCancelled(order.Id, order.CustomerId, "CUSTOMER_REQUEST"));
         await orders.SaveChangesAsync(ct);
         return OrderResponse.From(order);
     }

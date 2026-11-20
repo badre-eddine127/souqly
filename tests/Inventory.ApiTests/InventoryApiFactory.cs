@@ -25,6 +25,7 @@ public sealed class InventoryApiFactory : WebApplicationFactory<Program>, IAsync
         builder.ConfigureTestServices(services => services.UseTestJwt());
         builder.UseSetting("ConnectionStrings:InventoryDb", _postgres.ConnectionString + ";Maximum Pool Size=60");
         builder.UseSetting("Database:MigrateOnStartup", "true");
+        builder.UseSetting("Messaging:Transport", "InMemory");   // pas de Kafka dans ces tests : la saga est testée dans Saga.IntegrationTests
         builder.UseSetting("Inventory:ExpiryWorkerEnabled", "false");   // les tests déclenchent l'expiration eux-mêmes
     }
 

@@ -6,6 +6,7 @@ using Souqly.Inventory.Api;
 using Souqly.Inventory.Application;
 using Souqly.Inventory.Infrastructure;
 using Souqly.Inventory.Infrastructure.Persistence;
+using Souqly.Messaging;
 
 if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 {
@@ -18,6 +19,11 @@ builder.AddSouqlyDefaults();
 builder.Services.AddInventoryInfrastructure(builder.Configuration);
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<ReservationService>();
+builder.AddSouqlyMessaging<InventoryDbContext>(m => m
+    .Consume<OrderPlaced, InventorySaga>(Topics.OrderingEvents)
+    .Consume<OrderConfirmed, InventorySaga>(Topics.OrderingEvents)
+    .Consume<OrderRejected, InventorySaga>(Topics.OrderingEvents)
+    .Consume<OrderCancelled, InventorySaga>(Topics.OrderingEvents));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<SetStockRequestValidator>();
 builder.AddSouqlyOpenApi("Souqly Inventory API");

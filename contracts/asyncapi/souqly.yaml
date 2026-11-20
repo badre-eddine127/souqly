@@ -1,0 +1,219 @@
+asyncapi: 3.0.0
+info:
+  title: Souqly — événements de la saga de commande
+  version: 1.0.0
+  description: |
+    Contrat des messages Kafka échangés par les services Souqly (ADR-004, ADR-005).
+    - Clé de message : identifiant de commande (UUID) ; tous les événements d'une commande sont dans la même partition, donc ordonnés.
+    - Valeur : JSON (camelCase). En-têtes : message-id (UUID, sert à l'idempotence), message-type, occurred-at (ISO 8601), traceparent (W3C).
+    - Livraison « au moins une fois » : chaque consommateur ignore un message-id déjà traité (table inbox_messages).
+    - Après 3 échecs, le message est copié dans le topic `<topic>.dlq`.
+    - Compatibilité : on ajoute des champs, on n'en retire ni n'en renomme ; un changement cassant crée un topic `.v2`.
+
+servers:
+  local:
+    host: localhost:9092
+    protocol: kafka
+    description: Kafka KRaft lancé par Aspire (F5) ou Docker Compose
+
+channels:
+  orderEvents:
+    address: souqly.ordering.order-events.v1
+    description: Publié par Ordering.
+    messages:
+      OrderPlaced: { $ref: '#/components/messages/OrderPlaced' }
+      PaymentRequested: { $ref: '#/components/messages/PaymentRequested' }
+      OrderConfirmed: { $ref: '#/components/messages/OrderConfirmed' }
+      OrderRejected: { $ref: '#/components/messages/OrderRejected' }
+      OrderCancelled: { $ref: '#/components/messages/OrderCancelled' }
+  stockEvents:
+    address: souqly.inventory.stock-events.v1
+    description: Publié par Inventory.
+    messages:
+      StockReserved: { $ref: '#/components/messages/StockReserved' }
+      StockReservationFailed: { $ref: '#/components/messages/StockReservationFailed' }
+  paymentEvents:
+    address: souqly.payment.payment-events.v1
+    description: Publié par Payment.
+    messages:
+      PaymentSucceeded: { $ref: '#/components/messages/PaymentSucceeded' }
+      PaymentFailed: { $ref: '#/components/messages/PaymentFailed' }
+      PaymentRefunded: { $ref: '#/components/messages/PaymentRefunded' }
+
+operations:
+  ordering-publishes:
+    action: send
+    channel: { $ref: '#/channels/orderEvents' }
+  ordering-receives-stock:
+    action: receive
+    channel: { $ref: '#/channels/stockEvents' }
+    summary: Ordering fait avancer la commande (groupe « ordering »).
+  ordering-receives-payment:
+    action: receive
+    channel: { $ref: '#/channels/paymentEvents' }
+    messages:
+      - $ref: '#/channels/paymentEvents/messages/PaymentSucceeded'
+      - $ref: '#/channels/paymentEvents/messages/PaymentFailed'
+  inventory-receives:
+    action: receive
+    channel: { $ref: '#/channels/orderEvents' }
+    summary: Réserve (OrderPlaced), sort (OrderConfirmed), libère (OrderRejected), libère ou remet en stock (OrderCancelled).
+    messages:
+      - $ref: '#/channels/orderEvents/messages/OrderPlaced'
+      - $ref: '#/channels/orderEvents/messages/OrderConfirmed'
+      - $ref: '#/channels/orderEvents/messages/OrderRejected'
+      - $ref: '#/channels/orderEvents/messages/OrderCancelled'
+  inventory-publishes:
+    action: send
+    channel: { $ref: '#/channels/stockEvents' }
+  payment-receives:
+    action: receive
+    channel: { $ref: '#/channels/orderEvents' }
+    summary: Encaisse (PaymentRequested), rembourse (OrderCancelled d'une commande payée).
+    messages:
+      - $ref: '#/channels/orderEvents/messages/PaymentRequested'
+      - $ref: '#/channels/orderEvents/messages/OrderCancelled'
+  payment-publishes:
+    action: send
+    channel: { $ref: '#/channels/paymentEvents' }
+  notification-receives-orders:
+    action: receive
+    channel: { $ref: '#/channels/orderEvents' }
+    messages:
+      - $ref: '#/channels/orderEvents/messages/OrderConfirmed'
+      - $ref: '#/channels/orderEvents/messages/OrderRejected'
+      - $ref: '#/channels/orderEvents/messages/OrderCancelled'
+  notification-receives-payments:
+    action: receive
+    channel: { $ref: '#/channels/paymentEvents' }
+    messages:
+      - $ref: '#/channels/paymentEvents/messages/PaymentRefunded'
+
+components:
+  messageTraits:
+    souqly:
+      headers:
+        type: object
+        required: [message-id, message-type, occurred-at]
+        properties:
+          message-id: { type: string, format: uuid }
+          message-type: { type: string }
+          occurred-at: { type: string, format: date-time }
+          traceparent: { type: string, description: 'W3C Trace Context, ex. 00-<trace-id>-<span-id>-01' }
+      bindings:
+        kafka:
+          key: { type: string, format: uuid, description: Identifiant de commande }
+
+  schemas:
+    OrderId: { type: string, format: uuid }
+    Amount: { type: number, multipleOf: 0.01, minimum: 0.01, description: Montant en MAD }
+    OrderLine:
+      type: object
+      required: [productId, vendorId, productName, unitPrice, quantity]
+      properties:
+        productId: { type: integer, format: int64 }
+        vendorId: { type: string, description: sub Keycloak du vendeur }
+        productName: { type: string }
+        unitPrice: { $ref: '#/components/schemas/Amount' }
+        quantity: { type: integer, minimum: 1, maximum: 10 }
+
+  messages:
+    OrderPlaced:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Commande créée en PENDING ; Inventory doit réserver.
+      payload:
+        type: object
+        required: [orderId, customerId, lines, total, currency]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          lines: { type: array, minItems: 1, maxItems: 20, items: { $ref: '#/components/schemas/OrderLine' } }
+          total: { $ref: '#/components/schemas/Amount' }
+          currency: { type: string, const: MAD }
+    PaymentRequested:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Stock réservé ; Payment doit encaisser.
+      payload:
+        type: object
+        required: [orderId, customerId, amount, currency]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          amount: { $ref: '#/components/schemas/Amount' }
+          currency: { type: string, const: MAD }
+    OrderConfirmed:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Commande payée ; Inventory sort le stock, Notification prévient.
+      payload:
+        type: object
+        required: [orderId, customerId, paymentId, lines, total, currency]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          paymentId: { type: string, format: uuid }
+          lines: { type: array, items: { $ref: '#/components/schemas/OrderLine' } }
+          total: { $ref: '#/components/schemas/Amount' }
+          currency: { type: string, const: MAD }
+    OrderRejected:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Commande refusée ; Inventory libère ce qui était réservé.
+      payload:
+        type: object
+        required: [orderId, customerId, reason]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          reason: { type: string, enum: [OUT_OF_STOCK, PAYMENT_DECLINED] }
+    OrderCancelled:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Annulée par le client ; Inventory rend le stock, Payment rembourse si payé.
+      payload:
+        type: object
+        required: [orderId, customerId, reason]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          reason: { type: string, enum: [CUSTOMER_REQUEST] }
+    StockReserved:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      payload:
+        type: object
+        required: [orderId]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+    StockReservationFailed:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      payload:
+        type: object
+        required: [orderId, productId]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          productId: { type: integer, format: int64, description: Premier produit indisponible }
+    PaymentSucceeded:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      payload:
+        type: object
+        required: [orderId, paymentId, amount]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          paymentId: { type: string, format: uuid }
+          amount: { $ref: '#/components/schemas/Amount' }
+    PaymentFailed:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      payload:
+        type: object
+        required: [orderId, reason]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          reason: { type: string, enum: [LIMIT_EXCEEDED, DECLINED] }
+    PaymentRefunded:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      payload:
+        type: object
+        required: [orderId, customerId, paymentId, amount, currency]
+        properties:
+          orderId: { $ref: '#/components/schemas/OrderId' }
+          customerId: { type: string }
+          paymentId: { type: string, format: uuid }
+          amount: { $ref: '#/components/schemas/Amount' }
+          currency: { type: string, const: MAD }

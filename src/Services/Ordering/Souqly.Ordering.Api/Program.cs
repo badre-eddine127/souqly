@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Souqly.Chassis;
+using Souqly.Messaging;
 using Souqly.Ordering.Api;
 using Souqly.Ordering.Application;
 using Souqly.Ordering.Infrastructure;
@@ -17,6 +18,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddSouqlyDefaults();
 builder.Services.AddOrderingInfrastructure(builder.Configuration);
 builder.Services.AddScoped<OrderService>();
+builder.AddSouqlyMessaging<OrderingDbContext>(m => m
+    .Consume<StockReserved, OrderSaga>(Topics.InventoryEvents)
+    .Consume<StockReservationFailed, OrderSaga>(Topics.InventoryEvents)
+    .Consume<PaymentSucceeded, OrderSaga>(Topics.PaymentEvents)
+    .Consume<PaymentFailed, OrderSaga>(Topics.PaymentEvents));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<PlaceOrderRequestValidator>();
 builder.AddSouqlyOpenApi("Souqly Ordering API");

@@ -32,7 +32,8 @@ public static class Telemetry
                 .AddSource(builder.Environment.ApplicationName)
                 .AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health"))
                 .AddHttpClientInstrumentation()
-                .AddSource("Npgsql"))   // Npgsql émet ses propres traces SQL
+                .AddSource("Npgsql")   // Npgsql émet ses propres traces SQL
+                .AddSource("Souqly.Messaging"))   // envoi et traitement des messages Kafka
             .WithMetrics(m => m
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()

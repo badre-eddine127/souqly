@@ -26,6 +26,9 @@ public sealed class Order
     public OrderStatus Status { get; private set; }
     public decimal Total { get; private set; }
     public string? StatusReason { get; private set; }
+
+    /// <summary>Référence du paiement accepté (renseignée à la confirmation).</summary>
+    public Guid? PaymentId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public uint Version { get; private set; }
@@ -80,9 +83,15 @@ public sealed class Order
 
     public void MarkStockReserved(DateTimeOffset now) => Move(OrderStatus.StockReserved, null, now, OrderStatus.Pending);
 
-    public void Confirm(DateTimeOffset now) => Move(OrderStatus.Confirmed, null, now, OrderStatus.StockReserved);
+    /// <summary>Paiement accepté : la commande est confirmée et garde la référence du paiement.</summary>
+    public void Confirm(Guid paymentId, DateTimeOffset now)
+    {
+        Move(OrderStatus.Confirmed, null, now, OrderStatus.StockReserved);
+        PaymentId = paymentId;
+    }
 
-    public void Reject(string reason, DateTimeOffset now) => Move(OrderStatus.Rejected, reason, now, OrderStatus.Pending);
+    /// <summary>Stock insuffisant (depuis PENDING) ou paiement refusé (depuis STOCK_RESERVED).</summary>
+    public void Reject(string reason, DateTimeOffset now) => Move(OrderStatus.Rejected, reason, now, OrderStatus.Pending, OrderStatus.StockReserved);
 
     public void Ship(DateTimeOffset now) => Move(OrderStatus.Shipped, null, now, OrderStatus.Confirmed);
 

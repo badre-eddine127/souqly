@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Souqly.Messaging;
 using Souqly.Ordering.Domain;
 
 namespace Souqly.Ordering.Infrastructure.Persistence;
@@ -22,6 +23,7 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
             b.Property(i => i.RequestHash).HasMaxLength(64).IsRequired();
             b.HasIndex(i => i.CreatedAt);   // purge des clés de plus de 24 h (sprint 3)
         });
+        modelBuilder.AddMessagingTables();   // outbox (événements à publier) et inbox (messages déjà traités)
     }
 
     private static void ConfigureOrder(EntityTypeBuilder<Order> b)
@@ -32,6 +34,7 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
         b.Property(o => o.CustomerId).HasMaxLength(64).IsRequired();
         b.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
         b.Property(o => o.StatusReason).HasMaxLength(64);
+        b.Property(o => o.PaymentId);
         b.Property(o => o.Total).HasPrecision(12, 2);
         b.Property(o => o.Version).IsRowVersion();
         b.HasIndex(o => new { o.CustomerId, o.CreatedAt });

@@ -15,6 +15,7 @@
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.Redis" />
     <PackageReference Include="Aspire.Hosting.Keycloak" />
+    <PackageReference Include="Aspire.Hosting.Kafka" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +23,8 @@
     <ProjectReference Include="..\..\Services\Inventory\Souqly.Inventory.Api\Souqly.Inventory.Api.csproj" />
     <ProjectReference Include="..\..\Services\Cart\Souqly.Cart.Api\Souqly.Cart.Api.csproj" />
     <ProjectReference Include="..\..\Services\Ordering\Souqly.Ordering.Api\Souqly.Ordering.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Payment\Souqly.Payment.Api\Souqly.Payment.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Notification\Souqly.Notification.Api\Souqly.Notification.Api.csproj" />
     <ProjectReference Include="..\..\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" />
   </ItemGroup>
 

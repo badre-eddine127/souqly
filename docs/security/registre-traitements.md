@@ -11,6 +11,9 @@ Souqly s'adresse à des clients au Maroc : la loi n° 09-08 relative à la prote
 | T3 | Panier | Préparer un achat | Identifiant client (`sub`), produits, quantités | Clients | Cart / Redis | 30 jours sans activité (TTL) | Client |
 | T4 | Commandes | Exécuter la vente, suivi, service après-vente | Identifiant client (`sub`), lignes (produit, prix figé, quantité), statut, dates | Clients ; vendeurs (pour leurs lignes) | Ordering / `ordering_db` | 10 ans (obligations comptables, art. 22 du Code de commerce) | Client ; vendeur limité à ses lignes ; administrateurs |
 | T5 | Clés d'idempotence | Éviter les doubles commandes | Identifiant client, clé, empreinte SHA-256 de la requête | Clients | Ordering / `ordering_db` | 24 h (purge, sprint 3) | Service uniquement |
+| T7 | Paiements (simulés) | Encaisser, rembourser | Identifiant client, montant, statut, motif de refus ; **aucune donnée de carte** | Clients | Payment / `payment_db` | 10 ans (pièces comptables) | Client (son paiement), administrateurs |
+| T8 | Notifications | Informer de l'issue d'une commande | Identifiant destinataire (`sub`), texte du message, date de lecture | Clients, vendeurs | Notification / `notification_db` | 1 an | Destinataire |
+| T9 | Événements Kafka | Faire avancer la saga | Identifiants client et vendeur, lignes de commande, montants | Clients, vendeurs | Kafka (réseau interne) ; outbox/inbox des services | 7 jours (rétention des topics et des tables outbox/inbox) | Services uniquement |
 | T6 | Journaux et traces | Exploitation, sécurité | `traceId`, route, code HTTP, identifiant utilisateur ; ni mot de passe, ni jeton, ni corps de requête | Tous | Sortie standard / OpenTelemetry | 30 jours | Équipe d'exploitation |
 
 ## Principes appliqués

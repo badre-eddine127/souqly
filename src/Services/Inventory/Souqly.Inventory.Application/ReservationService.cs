@@ -74,6 +74,42 @@ public sealed class ReservationService(IStockStore store, TimeProvider clock)
             r.MarkCommitted();
         }, ct);
 
+    /// <summary>
+    /// Annulation par le client : réservation active → libérée ; déjà consommée (commande confirmée) → remise en stock.
+    /// Idempotent : un second appel ne trouve plus rien à faire.
+    /// </summary>
+    public async Task CancelAsync(Guid orderId, CancellationToken ct)
+    {
+        var open = (await store.ReservationsForOrderAsync(orderId, ct))
+            .Where(r => r.Status is ReservationStatus.Active or ReservationStatus.Committed)
+            .OrderBy(r => r.ProductId)
+            .ToList();
+        if (open.Count == 0)
+        {
+            return;
+        }
+
+        await store.InTransactionAsync(async () =>
+        {
+            foreach (var reservation in open)
+            {
+                if (reservation.IsActive)
+                {
+                    await store.ReleaseAsync(reservation.ProductId, reservation.Quantity, ct);
+                    reservation.MarkReleased();
+                }
+                else
+                {
+                    await store.RestockAsync(reservation.ProductId, reservation.Quantity, ct);
+                    reservation.MarkRestocked();
+                }
+            }
+
+            await store.SaveChangesAsync(ct);
+            return true;
+        }, ct);
+    }
+
     /// <summary>RG-03 : rend le stock des réservations échues (appelé toutes les 30 s). Renvoie le nombre expiré.</summary>
     public async Task<int> ExpireDueAsync(int batchSize, CancellationToken ct)
     {

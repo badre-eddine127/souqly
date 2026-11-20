@@ -19,6 +19,9 @@ public interface IStockStore
     /// <summary>Consomme une réservation : la marchandise sort du stock physique (commande confirmée).</summary>
     Task CommitAsync(long productId, int quantity, CancellationToken ct);
 
+    /// <summary>Remet en stock des unités déjà sorties (commande confirmée puis annulée avant expédition).</summary>
+    Task RestockAsync(long productId, int quantity, CancellationToken ct);
+
     Task<IReadOnlyList<Reservation>> ReservationsForOrderAsync(Guid orderId, CancellationToken ct);
 
     Task<IReadOnlyList<Reservation>> DueReservationsAsync(DateTimeOffset now, int limit, CancellationToken ct);

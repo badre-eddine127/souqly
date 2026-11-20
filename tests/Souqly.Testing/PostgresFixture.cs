@@ -17,6 +17,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     private PostgreSqlContainer? _container;
     private string? _adminConnectionString;
     private string? _databaseName;
+    private readonly List<string> _extraDatabases = [];
 
     public string ConnectionString { get; private set; } = string.Empty;
 
@@ -37,6 +38,19 @@ public sealed class PostgresFixture : IAsyncLifetime
         ConnectionString = _container.GetConnectionString();
     }
 
+    /// <summary>
+    /// Crée une base supplémentaire sur le même serveur (une base par service dans les tests de saga,
+    /// comme en production) et renvoie sa chaîne de connexion.
+    /// </summary>
+    public async Task<string> CreateDatabaseAsync(string prefix)
+    {
+        var admin = _adminConnectionString ?? ConnectionString;
+        var name = $"{prefix}_{Guid.NewGuid():N}"[..Math.Min(prefix.Length + 13, 60)];
+        await ExecuteAsync(admin, $"CREATE DATABASE {name}");
+        _extraDatabases.Add(name);
+        return new NpgsqlConnectionStringBuilder(admin) { Database = name }.ConnectionString;
+    }
+
     public async Task DisposeAsync()
     {
         if (_container is not null)
@@ -48,6 +62,11 @@ public sealed class PostgresFixture : IAsyncLifetime
         if (_adminConnectionString is not null && _databaseName is not null)
         {
             NpgsqlConnection.ClearAllPools();
+            foreach (var extra in _extraDatabases)
+            {
+                await ExecuteAsync(_adminConnectionString, $"DROP DATABASE IF EXISTS {extra} WITH (FORCE)");
+            }
+
             await ExecuteAsync(_adminConnectionString, $"DROP DATABASE IF EXISTS {_databaseName} WITH (FORCE)");
         }
     }

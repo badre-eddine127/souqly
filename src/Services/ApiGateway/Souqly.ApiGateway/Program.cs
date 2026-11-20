@@ -96,6 +96,8 @@ app.MapScalarApiReference(o =>
     o.AddDocument("inventory", "Inventory", "/openapi/inventory.json");
     o.AddDocument("cart", "Cart", "/openapi/cart.json");
     o.AddDocument("ordering", "Ordering", "/openapi/ordering.json");
+    o.AddDocument("payment", "Payment", "/openapi/payment.json");
+    o.AddDocument("notification", "Notification", "/openapi/notification.json");
     // Bouton « Authorize » : connexion Keycloak en Authorization Code + PKCE, sans secret côté navigateur.
     o.AddPreferredSecuritySchemes(OpenApiSetup.OAuth2Scheme)
      .AddAuthorizationCodeFlow(OpenApiSetup.OAuth2Scheme, flow =>

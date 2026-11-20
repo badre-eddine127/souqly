@@ -9,4 +9,8 @@
     <PackageReference Include="FluentValidation" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
+  </ItemGroup>
+
 </Project>

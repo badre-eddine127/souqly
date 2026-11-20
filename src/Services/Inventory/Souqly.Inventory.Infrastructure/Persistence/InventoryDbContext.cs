@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Souqly.Inventory.Domain;
+using Souqly.Messaging;
 
 namespace Souqly.Inventory.Infrastructure.Persistence;
 
@@ -13,6 +14,7 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.AddMessagingTables();   // outbox et inbox de la saga
         modelBuilder.Entity<StockItem>(ConfigureStockItem);
         modelBuilder.Entity<Reservation>(ConfigureReservation);
     }

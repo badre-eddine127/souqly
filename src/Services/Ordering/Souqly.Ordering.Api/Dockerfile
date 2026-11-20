@@ -6,6 +6,7 @@ WORKDIR /src
 # 1. Restauration en couche séparée : elle n'est refaite que si les fichiers de projet changent.
 COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
 COPY src/BuildingBlocks/Souqly.Chassis/Souqly.Chassis.csproj src/BuildingBlocks/Souqly.Chassis/
+COPY src/BuildingBlocks/Souqly.Messaging/Souqly.Messaging.csproj src/BuildingBlocks/Souqly.Messaging/
 COPY src/Services/Ordering/Souqly.Ordering.Domain/Souqly.Ordering.Domain.csproj src/Services/Ordering/Souqly.Ordering.Domain/
 COPY src/Services/Ordering/Souqly.Ordering.Application/Souqly.Ordering.Application.csproj src/Services/Ordering/Souqly.Ordering.Application/
 COPY src/Services/Ordering/Souqly.Ordering.Infrastructure/Souqly.Ordering.Infrastructure.csproj src/Services/Ordering/Souqly.Ordering.Infrastructure/

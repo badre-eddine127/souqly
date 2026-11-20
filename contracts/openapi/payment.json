@@ -1,0 +1,121 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "Souqly Payment API",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/v1/payments/{orderId}": {
+            "get": {
+                "tags": [
+                    "Paiements"
+                ],
+                "summary": "\u00c9tat du paiement d'une de mes commandes",
+                "parameters": [
+                    {
+                        "name": "orderId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "PaymentResponse": {
+                "required": [
+                    "id",
+                    "orderId",
+                    "status",
+                    "amount",
+                    "currency",
+                    "failureReason",
+                    "updatedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "failureReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "oauth2": {
+                "type": "oauth2",
+                "description": "Connexion Keycloak (realm souqly), client public souqly-web avec PKCE.",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/auth",
+                        "tokenUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/token",
+                        "scopes": {
+                            "openid": "Identit\u00e9 OpenID Connect"
+                        }
+                    }
+                }
+            },
+            "bearer": {
+                "type": "http",
+                "description": "Jeton d'acc\u00e8s Keycloak coll\u00e9 \u00e0 la main (Authorization: Bearer \u2026).",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "security": [
+        {
+            "oauth2": [
+                "openid"
+            ]
+        },
+        {
+            "bearer": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Paiements"
+        }
+    ]
+}

@@ -30,6 +30,7 @@ public sealed class OrderingApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.ConfigureTestServices(services => services.UseTestJwt());
         builder.UseSetting("ConnectionStrings:OrderDb", _postgres.ConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
+        builder.UseSetting("Messaging:Transport", "InMemory");   // pas de Kafka dans ces tests : la saga est testée dans Saga.IntegrationTests
         builder.UseSetting("Catalog:BaseAddress", Catalog.Address);
         builder.UseSetting("ServiceAccount:TokenEndpoint", Catalog.Address + "/token");
         builder.UseSetting("ServiceAccount:ClientSecret", "test-secret");

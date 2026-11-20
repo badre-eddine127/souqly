@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Les quatre services de la saga démarrés dans le même processus : chacun a sa classe Program,
+       d'où les alias (extern alias) pour les distinguer. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Ordering\Souqly.Ordering.Api\Souqly.Ordering.Api.csproj" Aliases="ordering" />
+    <ProjectReference Include="..\..\src\Services\Inventory\Souqly.Inventory.Api\Souqly.Inventory.Api.csproj" Aliases="inventory" />
+    <ProjectReference Include="..\..\src\Services\Payment\Souqly.Payment.Api\Souqly.Payment.Api.csproj" Aliases="payment" />
+    <ProjectReference Include="..\..\src\Services\Notification\Souqly.Notification.Api\Souqly.Notification.Api.csproj" Aliases="notification" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
+    <ProjectReference Include="..\Souqly.Testing\Souqly.Testing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+</Project>

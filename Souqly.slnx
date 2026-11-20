@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Souqly.Chassis/Souqly.Chassis.csproj" />
+    <Project Path="src/BuildingBlocks/Souqly.Messaging/Souqly.Messaging.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
   <Folder Name="/src/Services/ApiGateway/">
@@ -28,11 +29,17 @@
     <Project Path="src/Services/Inventory/Souqly.Inventory.Domain/Souqly.Inventory.Domain.csproj" />
     <Project Path="src/Services/Inventory/Souqly.Inventory.Infrastructure/Souqly.Inventory.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Notification/">
+    <Project Path="src/Services/Notification/Souqly.Notification.Api/Souqly.Notification.Api.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Ordering/">
     <Project Path="src/Services/Ordering/Souqly.Ordering.Api/Souqly.Ordering.Api.csproj" />
     <Project Path="src/Services/Ordering/Souqly.Ordering.Application/Souqly.Ordering.Application.csproj" />
     <Project Path="src/Services/Ordering/Souqly.Ordering.Domain/Souqly.Ordering.Domain.csproj" />
     <Project Path="src/Services/Ordering/Souqly.Ordering.Infrastructure/Souqly.Ordering.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Payment/">
+    <Project Path="src/Services/Payment/Souqly.Payment.Api/Souqly.Payment.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ApiGateway.Tests/ApiGateway.Tests.csproj" />
@@ -42,8 +49,10 @@
     <Project Path="tests/Catalog.UnitTests/Catalog.UnitTests.csproj" />
     <Project Path="tests/Inventory.ApiTests/Inventory.ApiTests.csproj" />
     <Project Path="tests/Inventory.UnitTests/Inventory.UnitTests.csproj" />
+    <Project Path="tests/Messaging.Tests/Messaging.Tests.csproj" />
     <Project Path="tests/Ordering.ApiTests/Ordering.ApiTests.csproj" />
     <Project Path="tests/Ordering.UnitTests/Ordering.UnitTests.csproj" />
+    <Project Path="tests/Saga.IntegrationTests/Saga.IntegrationTests.csproj" />
     <Project Path="tests/Souqly.Testing/Souqly.Testing.csproj" />
   </Folder>
 </Solution>
