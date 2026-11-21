@@ -76,6 +76,7 @@ services:
       ORDERING_CLIENT_SECRET: ${ORDERING_CLIENT_SECRET}
     volumes:
       - keycloak-data:/opt/keycloak/data
+      - ../keycloak/themes:/opt/keycloak/themes:ro   # page de connexion « lampe »
       - ../keycloak:/opt/keycloak/data/import:ro
     ports:
       - "8180:8080"   # page de connexion (navigateur) et émetteur des jetons
@@ -264,13 +265,23 @@ services:
       payment: { condition: service_healthy }
       notification: { condition: service_healthy }
 
-  # Site web (React) servi par nginx, qui relaie /api vers la passerelle. Port 5173 : URL déclarée dans Keycloak.
+  # Site web (HTML, CSS, JavaScript) servi par ASP.NET Core, qui gère la connexion et relaie /api vers la passerelle.
   web:
+    <<: *service-defaults
     build:
-      context: ../../frontend
+      context: ../..
+      dockerfile: src/Web/Souqly.Web/Dockerfile
     image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-web:${SOUQLY_VERSION:-dev}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Gateway__Address: http://gateway:8080
+      Oidc__Authority: http://localhost:8180/realms/souqly
+      Oidc__MetadataAddress: http://keycloak:8080/realms/souqly/.well-known/openid-configuration
+      Telemetry__GrafanaEndpoint: http://grafana:4317
+    healthcheck:
+      test: ["CMD", "dotnet", "Souqly.Web.dll", "--healthcheck"]
     ports:
-      - "5173:80"
+      - "5173:8080"   # adresse déclarée dans Keycloak pour le client souqly-web
     depends_on:
       gateway: { condition: service_healthy }
 

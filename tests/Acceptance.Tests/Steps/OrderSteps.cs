@@ -179,6 +179,18 @@ public sealed class OrderSteps(World world)
     public async Task ThenNotMentioned(string user, string text) =>
         (await NotificationsAsync(user)).Where(x => x.OrderId == world.OrderId).ShouldAllBe(x => !x.Body.Contains(text, StringComparison.OrdinalIgnoreCase));
 
+    [Then(@"^""([^""]+)"" a au moins (\d+) notification non lue$")]
+    public async Task ThenAtLeastUnread(string user, int count) =>
+        (await NotificationsAsync(user)).Count(n => !n.Read).ShouldBeGreaterThanOrEqualTo(count);
+
+    [When(@"^""([^""]+)"" ouvre ses notifications$")]
+    public async Task WhenOpenBell(string user) =>
+        (await world.Platform.Notification.As(world.User(user), "CUSTOMER", "VENDOR").PostAsync("/api/v1/notifications/read-all", null)).EnsureSuccessStatusCode();
+
+    [Then(@"^""([^""]+)"" a (\d+) notification non lue$")]
+    public async Task ThenUnread(string user, int count) =>
+        (await NotificationsAsync(user)).Count(n => !n.Read).ShouldBe(count);
+
     // ---------- traçabilité (US-19) ----------
 
     [Then(@"^les messages de la commande sont, dans l'ordre, ""([^""]+)""$")]

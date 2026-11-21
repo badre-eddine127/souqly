@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Souqly — L'artisanat marocain</title>
+  <meta name="description" content="Découvrez les créations des artisans marocains sur Souqly." />
+  <link rel="icon" href="/img/souqly-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+  <div class="topline"></div>
+  <header class="header">
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="brand" href="/" data-link aria-label="Souqly accueil">
+        <img src="/img/souqly-logo.svg" alt="" />
+        <span class="brand-name">Souq<span>ly</span></span>
+      </a>
+      <div class="navlinks" id="nav"></div>
+      <div class="navright" id="account"></div>
+    </nav>
+  </header>
+
+  <main id="app">
+    <div class="loading">Chargement…</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>© 2026 Souqly — L'artisanat marocain, avec du sens. Projet SUP351.</span>
+      <span>Livraison suivie &nbsp;·&nbsp; Paiement sécurisé &nbsp;·&nbsp;
+        <a href="http://localhost:8080/scalar/catalog" target="_blank" rel="noreferrer">Documentation de l'API</a></span>
+    </div>
+  </footer>
+
+  <div class="toasts" id="toasts" role="status"></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

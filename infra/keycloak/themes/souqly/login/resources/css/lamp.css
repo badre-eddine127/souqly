@@ -1,0 +1,162 @@
+/* Connexion Souqly : la nuit dans le souk, une lampe à allumer. Couleurs de la marque : terre cuite, or, sable. */
+:root {
+  --ink: #292019;
+  --clay: #a94f32;
+  --clay-dark: #813a27;
+  --gold: #c99b50;
+  --sand: #f4e8d5;
+  --paper: #fffaf2;
+  --muted: #78695c;
+  --night: #15100c;
+  --serif: Georgia, "Times New Roman", serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #efe4d4;
+  background: radial-gradient(ellipse at 30% 40%, #2a1f17 0%, var(--night) 60%) fixed;
+  transition: background 0.8s ease;
+  overflow-x: hidden;
+}
+body.lit { background: radial-gradient(ellipse at 30% 35%, #5a3a24 0%, #2c1d14 45%, #19110c 100%) fixed; }
+
+.scene {
+  min-height: 100vh; max-width: 1100px; margin: 0 auto; padding: 40px 24px;
+  display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 40px;
+}
+
+/* ---------- Lampe ---------- */
+.lamp-zone { display: flex; flex-direction: column; align-items: center; gap: 26px; transition: transform 0.7s cubic-bezier(.2, .8, .2, 1); }
+/* Éteinte, la lampe est seule au centre ; allumée, elle glisse à gauche pour laisser la place au formulaire. */
+body.js:not(.lit) .lamp-zone { transform: translateX(calc(50% + 20px)); }
+.lamp {
+  position: relative; width: 240px; height: 340px; border: 0; padding: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lamp:focus-visible { outline: 2px dashed var(--gold); outline-offset: 12px; border-radius: 20px; }
+
+/* Tête de la lampe (abat-jour + ampoule) : pivote vers le formulaire quand elle est allumée (--tilt, lamp.js). */
+.head {
+  position: absolute; left: 30px; top: 30px; width: 180px; height: 104px; z-index: 3;
+  transform-origin: 90px 96px; transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.85s cubic-bezier(.34, 1.3, .64, 1);
+}
+.shade {
+  position: absolute; inset: 0 0 8px 0;
+  background: linear-gradient(180deg, #efe3cf 0%, #d9c7a9 100%);
+  border-radius: 90px 90px 14px 14px;
+  box-shadow: inset 0 -8px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden; z-index: 2; transition: background 0.5s, box-shadow 0.5s;
+}
+/* Frise géométrique ciselée sur l'abat-jour, façon lanterne marocaine */
+.shade-pattern {
+  position: absolute; inset: auto 0 12px 0; height: 22px; opacity: 0.55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M11 2l3 6 6 3-6 3-3 6-3-6-6-3 6-3z' fill='none' stroke='%23a94f32' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x center/22px;
+}
+.bulb {
+  position: absolute; left: 70px; top: 82px; width: 40px; height: 22px; border-radius: 0 0 22px 22px;
+  background: #6d5d4c; z-index: 1; transition: background 0.4s, box-shadow 0.4s;
+}
+.stem { position: absolute; left: 112px; top: 120px; width: 16px; height: 170px; background: linear-gradient(90deg, #cdbb9d, #f2e6d2, #c4b08f); border-radius: 8px; z-index: 1; }
+.base { position: absolute; left: 60px; bottom: 30px; width: 120px; height: 18px; background: linear-gradient(180deg, #efe3cf, #cdbb9d); border-radius: 12px; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45); }
+
+/* Cordon : s'étire quand on le tire (lamp.js), revient comme un ressort quand on le lâche */
+.cord {
+  position: absolute; left: 168px; top: 118px; width: 2px; height: 84px; background: #b9a88e; z-index: 4;
+  transform-origin: top center; transition: height 0.45s cubic-bezier(.34, 1.8, .5, 1);
+}
+.cord.dragging { transition: none; }
+.knob {
+  position: absolute; left: -11px; bottom: -22px; width: 24px; height: 24px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e9c98b, var(--gold) 60%, #9c7434);
+  box-shadow: 0 0 0 4px rgba(201, 155, 80, 0.22), 0 4px 10px rgba(0, 0, 0, 0.4);
+  cursor: grab; touch-action: none; transition: box-shadow 0.2s, transform 0.2s;
+}
+.knob:hover { box-shadow: 0 0 0 8px rgba(201, 155, 80, 0.28), 0 4px 10px rgba(0, 0, 0, 0.4); transform: scale(1.08); }
+.cord.dragging .knob { cursor: grabbing; transform: scale(1.12); }
+.cord.ready .knob { box-shadow: 0 0 0 10px rgba(255, 214, 140, 0.45), 0 0 24px rgba(255, 214, 140, 0.8); }
+.lamp.pull .cord { animation: sway 0.9s ease; }
+@keyframes sway { 25% { transform: rotate(6deg); } 50% { transform: rotate(-4deg); } 75% { transform: rotate(2deg); } }
+
+/* Halo autour de la tête */
+.glow {
+  position: absolute; left: -60px; top: -40px; width: 360px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 140, 0.5) 0%, rgba(255, 190, 110, 0.12) 45%, transparent 70%);
+  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
+}
+body.lit .glow { opacity: 1; }
+body.lit .bulb { background: #fff3c9; box-shadow: 0 0 30px 12px rgba(255, 214, 140, 0.8); }
+body.lit .shade { background: linear-gradient(180deg, #fff7e6 0%, #f3dfb8 100%); box-shadow: inset 0 -8px 20px rgba(201, 155, 80, 0.35), 0 0 40px rgba(255, 214, 140, 0.35); }
+
+/* Faisceau projeté sur le formulaire (polygone calculé par lamp.js) */
+.spot { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 0.7s ease 0.15s; mix-blend-mode: screen; }
+body.lit .spot { opacity: 1; }
+.scene { position: relative; z-index: 1; }
+.lamp-zone { position: relative; z-index: 2; }
+
+.hint { margin: 0; color: #b9a88e; font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; text-align: center; transition: color 0.5s; }
+body.lit .hint { color: #f0d29a; }
+body.js:not(.lit) .hint { animation: blink 2.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.45; } }
+
+/* ---------- Formulaire ---------- */
+.login-card {
+  background: rgba(255, 250, 242, 0.97); color: var(--ink);
+  border-radius: 24px; padding: 34px 34px 26px; max-width: 420px; width: 100%;
+  border: 1px solid rgba(201, 155, 80, 0.45);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 60px rgba(255, 200, 120, 0.12);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2, .8, .2, 1), filter 0.6s, box-shadow 0.8s;
+}
+/* Éclairé par la lampe : le formulaire rayonne d'une lumière chaude */
+body.lit .login-card { box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4), 0 0 90px rgba(255, 210, 140, 0.35), 0 0 0 1px rgba(255, 220, 160, 0.6); }
+/* Lampe éteinte : formulaire invisible (seulement si le JavaScript tourne) */
+body.js:not(.lit) .login-card { opacity: 0; transform: translateX(30px) scale(0.97); filter: blur(4px); pointer-events: none; visibility: hidden; transition: opacity 0.4s, transform 0.4s, filter 0.4s, visibility 0s 0.4s; }
+
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.brand img { width: 40px; height: 40px; }
+.brand span { font: 700 25px var(--serif); letter-spacing: -0.8px; }
+.brand em { font-style: normal; color: var(--clay); }
+h1 { font: 700 30px/1.15 var(--serif); margin: 0 0 6px; }
+.subtitle { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+.alert { padding: 10px 14px; border-radius: 12px; margin-bottom: 16px; font-size: 14px; }
+.alert-error, .alert-warning { background: #f8e4dc; color: #8d2f20; border: 1px solid #efc6b8; }
+.alert-success, .alert-info { background: #eef1e4; color: #4f6b3a; border: 1px solid #d6dcc4; }
+
+.field { margin-bottom: 14px; }
+label { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 6px; }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; }
+.label-row a, .register a { color: var(--clay-dark); font-size: 13px; font-weight: 600; text-decoration: none; }
+.label-row a:hover, .register a:hover { text-decoration: underline; }
+input[type="text"], input[type="password"] {
+  width: 100%; padding: 12px 14px; border: 1px solid #e2d5c2; border-radius: 12px; background: #fff;
+  font: inherit; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201, 155, 80, 0.22); }
+input[aria-invalid="true"] { border-color: #c0573f; }
+.password { position: relative; }
+.password input { padding-right: 86px; }
+.reveal { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: #f4ecdf; color: var(--clay-dark); font-weight: 600; font-size: 12px; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+.remember { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 4px 0 16px; }
+.submit {
+  width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(135deg, var(--clay), var(--clay-dark)); color: #fff; font: 700 15px Inter, system-ui, sans-serif;
+  box-shadow: 0 10px 24px rgba(129, 58, 39, 0.35); transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.submit:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(129, 58, 39, 0.42); }
+.submit:disabled { opacity: 0.7; cursor: progress; transform: none; }
+.register { text-align: center; margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+.demo { margin: 14px 0 0; padding-top: 14px; border-top: 1px dashed #e2d5c2; font-size: 12px; color: var(--muted); text-align: center; }
+
+@media (max-width: 860px) {
+  .scene { grid-template-columns: 1fr; gap: 10px; padding-top: 24px; }
+  .lamp { transform: scale(0.75); margin: -30px 0 -50px; }
+  body.js:not(.lit) .lamp-zone { transform: translateY(18vh); }
+  .login-card { margin: 0 auto; }
+  body.js:not(.lit) .login-card { transform: translateY(20px) scale(0.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

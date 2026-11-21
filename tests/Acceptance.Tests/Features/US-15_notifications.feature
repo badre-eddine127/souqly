@@ -15,3 +15,12 @@ Fonctionnalité: Être prévenu à chaque étape
     Et le total de la commande est 2589.90 MAD
     Et "fatima" reçoit une notification qui mentionne "2 × Tapis berbère"
     Et la notification de "fatima" ne mentionne pas "argan"
+
+  Scénario: Ouvrir la cloche remet le compteur à zéro
+    Étant donné que le vendeur "fatima" propose le produit "Tapis notifié" à 500,00 MAD avec 2 unités en stock
+    Et que la cliente "sara" a mis 1 "Tapis notifié" dans son panier
+    Quand la cliente "sara" valide son panier
+    Alors "sara" reçoit la notification "Commande confirmée"
+    Et "sara" a au moins 1 notification non lue
+    Quand "sara" ouvre ses notifications
+    Alors "sara" a 0 notification non lue

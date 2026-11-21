@@ -36,7 +36,6 @@ flowchart TB
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download) (version figée dans `global.json`)
 - Docker Desktop (Compose v2)
-- [Node.js 22 LTS](https://nodejs.org) (site web React ; `npm` doit être dans le PATH)
 - 16 Go de RAM recommandés
 
 ## Démarrer depuis Visual Studio (F5)
@@ -48,13 +47,13 @@ flowchart TB
 
 Aspire démarre PostgreSQL 16, Redis 7, Keycloak 26 et Kafka en conteneurs, crée les bases, importe le realm `souqly`, lance les six services puis la passerelle quand ils sont sains, et ouvre le **tableau de bord** (état, logs, traces). Le lien « Documentation de l'API (Scalar) » de la ligne *gateway* ouvre `http://localhost:8080/scalar`. Les points d'arrêt fonctionnent dans tous les services ([ADR-012](docs/adr/ADR-012-aspire-dev-local.md)).
 
-Le **site web** (ligne *web* du tableau de bord) s'ouvre sur **http://localhost:5173** : catalogue, panier, commande et suivi pour un client, produits, stock et expéditions pour un vendeur. Au premier F5, Aspire lance `npm install` (une minute environ).
+Le **site web** (ligne *web* du tableau de bord) s'ouvre sur **http://localhost:5173** : catalogue, panier, commande et suivi pour un client, produits, stock et expéditions pour un vendeur. 
 
 En ligne de commande : `dotnet run --project src/Aspire/Souqly.AppHost`.
 
-## Le site web (frontend)
+## Le site web
 
-React 19 + Vite + TypeScript dans `frontend/` (option B du cahier des charges) :
+Projet ASP.NET Core `src/Web/Souqly.Web` : les pages sont du **HTML, CSS et JavaScript** (sans framework, dans `wwwroot`), servies par ASP.NET Core. Lancé par F5 avec le reste, il s'ouvre sur **http://localhost:5173**.
 
 | Écran | Acteur | Stories |
 |---|---|---|
@@ -64,12 +63,10 @@ React 19 + Vite + TypeScript dans `frontend/` (option B du cahier des charges) :
 | Mes produits, mon stock, commandes à préparer et expédition | vendeur | US-03, US-10, US-13 |
 | Notifications | client, vendeur | US-15 |
 
-- Connexion Keycloak en **Authorization Code + PKCE** (client public `souqly-web`, `oidc-client-ts`) ; le jeton reste **en mémoire**, jamais dans `localStorage`.
-- Client d'API **généré** depuis `contracts/openapi` (`npm run api`, `openapi-typescript` + `openapi-fetch`) : aucun DTO écrit à la main ; la CI vérifie qu'il est à jour.
-- Tout passe par la passerelle (`/api` relayé par Vite en développement, par nginx dans l'image Docker).
+- **Connexion Keycloak côté serveur** (Authorization Code + PKCE, client `souqly-web`) : les jetons restent dans le cookie de session chiffré (`HttpOnly`), **le JavaScript ne voit jamais de jeton** (modèle *Backend for Frontend*).
+- Le JavaScript appelle `/api/...` sur le même site ; ASP.NET Core ajoute le jeton (renouvelé automatiquement) et relaie vers la passerelle (YARP).
+- Protection CSRF : cookie `SameSite=Lax` et en-tête `X-Souqly` exigé sur tout appel modifiant.
 - Masquer un bouton ne protège rien : chaque service vérifie les rôles.
-
-Sans Aspire : `cd frontend && npm install && npm run dev` (passerelle attendue sur `localhost:8080`).
 
 ## Démarrer avec Docker Compose (démo, CI)
 
@@ -134,7 +131,7 @@ src/BuildingBlocks/Souqly.Chassis   # technique transverse : erreurs, pagination
 src/Services/<Service>/             # Domain · Application · Infrastructure · Api
 tests/<Service>.*Tests              # unitaires, API, intégration, architecture
 tests/Acceptance.Tests/Features     # critères d'acceptation Gherkin exécutables (Reqnroll)
-frontend/                           # site web React + Vite + TypeScript
+src/Web/Souqly.Web                  # site web : HTML, CSS, JavaScript servis par ASP.NET Core
 contracts/openapi · asyncapi        # contrats écrits avant le code
 infra/compose · keycloak · postgres # environnement local
 docs/adr · architecture · operations · security · compte-rendu

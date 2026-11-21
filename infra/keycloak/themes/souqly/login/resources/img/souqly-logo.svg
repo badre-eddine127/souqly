@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Souqly">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b65c39"/><stop offset="1" stop-color="#7d3828"/></linearGradient></defs>
+  <rect x="4" y="4" width="112" height="112" rx="28" fill="#f4e8d5"/>
+  <path d="M60 15 94 35v40L60 100 26 75V35z" fill="none" stroke="url(#g)" stroke-width="4"/>
+  <path d="M60 26 83 39v28L60 81 37 67V39z" fill="#fffaf2" stroke="#c89b59" stroke-width="2"/>
+  <path d="M44 47c5-8 25-8 30 0 4 7-2 12-14 14-12 2-16 7-11 13 5 7 22 6 28-2" fill="none" stroke="#a94f32" stroke-width="5" stroke-linecap="round"/>
+  <path d="M60 17v9M60 81v18M25 55h12M83 55h12" stroke="#59634a" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="60" cy="11" r="4" fill="#c99b50"/>
+</svg>

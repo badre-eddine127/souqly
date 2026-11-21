@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Site web de Souqly : pages HTML, CSS et JavaScript (wwwroot) servies par ASP.NET Core.
+       Le serveur gère la connexion Keycloak (cookie) et relaie /api vers la passerelle avec le jeton :
+       le navigateur ne voit jamais de jeton (modèle « Backend for Frontend »). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Souqly.Chassis\Souqly.Chassis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Web.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+
+</Project>

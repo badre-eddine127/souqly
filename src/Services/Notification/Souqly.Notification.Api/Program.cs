@@ -65,6 +65,17 @@ notifications.MapPost("/{id:guid}/read", async (Guid id, HttpContext http, Notif
     })
     .WithSummary("Marquer une notification comme lue");
 
+notifications.MapPost("/read-all", async (HttpContext http, NotificationDbContext db, TimeProvider clock, CancellationToken ct) =>
+    {
+        var me = http.CurrentUser().Id;
+        var now = clock.GetUtcNow();
+        var updated = await db.Notifications
+            .Where(n => n.RecipientId == me && n.ReadAt == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(n => n.ReadAt, now), ct);
+        return TypedResults.Ok(new ReadAllResponse(updated));
+    })
+    .WithSummary("Marquer toutes mes notifications comme lues (ouverture de la cloche)");
+
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {
     await using var scope = app.Services.CreateAsyncScope();

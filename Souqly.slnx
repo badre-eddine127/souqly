@@ -41,6 +41,9 @@
   <Folder Name="/src/Services/Payment/">
     <Project Path="src/Services/Payment/Souqly.Payment.Api/Souqly.Payment.Api.csproj" />
   </Folder>
+  <Folder Name="/src/Web/">
+    <Project Path="src/Web/Souqly.Web/Souqly.Web.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ApiGateway.Tests/ApiGateway.Tests.csproj" />
     <Project Path="tests/Cart.Tests/Cart.Tests.csproj" />
@@ -54,6 +57,7 @@
     <Project Path="tests/Ordering.UnitTests/Ordering.UnitTests.csproj" />
     <Project Path="tests/Acceptance.Tests/Acceptance.Tests.csproj" />
     <Project Path="tests/Saga.IntegrationTests/Saga.IntegrationTests.csproj" />
+    <Project Path="tests/Web.Tests/Web.Tests.csproj" />
     <Project Path="tests/Souqly.Testing/Souqly.Testing.csproj" />
   </Folder>
 </Solution>

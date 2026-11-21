@@ -62,6 +62,7 @@ else
 var keycloak = useExistingInfrastructure ? null : builder.AddKeycloak("keycloak", port: 8180)
     .WithImageTag("26.6")
     .WithRealmImport("../../../infra/keycloak")
+    .WithBindMount("../../../infra/keycloak/themes", "/opt/keycloak/themes", isReadOnly: true)
     .WithEnvironment("ORDERING_CLIENT_SECRET", orderingSecret)
     .WithDataVolume("souqly-keycloak-data")
     .WithLifetime(ContainerLifetime.Persistent);
@@ -137,6 +138,10 @@ if (grafana is not null)
 // Les services valident les jetons Keycloak : ils démarrent une fois Keycloak prêt.
 if (keycloak is not null)
 {
+    // Page de connexion « lampe » (infra/keycloak/themes/souqly) appliquée au realm dès que Keycloak est prêt.
+    builder.Eventing.Subscribe<ResourceReadyEvent>(keycloak.Resource, (e, ct) =>
+        KeycloakTheme.ApplyAsync(keycloak.Resource, "http://localhost:8180", Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(e.Services).CreateLogger("Souqly.KeycloakTheme"), ct));
+
     foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification })
     {
         service.WaitFor(keycloak);
@@ -172,14 +177,29 @@ if (grafana is not null)
     gateway.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
 }
 
-// Site web (React + Vite) : npm install au premier lancement, puis serveur de développement sur le port 5173
-// (adresse de redirection déclarée dans Keycloak). /api est relayé vers la passerelle par le proxy de Vite.
-builder.AddViteApp("web", "../../../frontend")
-    .WithNpm(install: true)
-    .WithReference(gateway)
+// Site web (HTML, CSS, JavaScript servis par ASP.NET Core) sur http://localhost:5173 :
+// il gère la connexion Keycloak et relaie /api vers la passerelle.
+var web = builder.AddProject<Projects.Souqly_Web>("web")
+    .WithEnvironment("Gateway__Address", gateway.GetEndpoint("http"))
+    .WithEnvironment("Oidc__Authority", Authority)
     .WaitFor(gateway)
-    .WithEndpoint("http", e => e.Port = 5173)
+    .WithHttpHealthCheck("/health/ready")
     .WithExternalHttpEndpoints()
     .WithUrlForEndpoint("http", url => url.DisplayText = "Souqly (site web)");
+if (grafana is not null)
+{
+    web.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
+}
+
+// F5 = toute la plateforme : dès que le site web est prêt (donc la passerelle et les services aussi),
+// il s'ouvre dans le navigateur, en plus du tableau de bord Aspire. Désactivable : Souqly:OpenWebsite=false.
+if (builder.ExecutionContext.IsRunMode && !string.Equals(builder.Configuration["Souqly:OpenWebsite"], "false", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Eventing.Subscribe<ResourceReadyEvent>(web.Resource, (_, _) =>
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:5173") { UseShellExecute = true });
+        return Task.CompletedTask;
+    });
+}
 
 await builder.Build().RunAsync();

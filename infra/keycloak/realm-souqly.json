@@ -1,5 +1,6 @@
 {
   "realm": "souqly",
+  "loginTheme": "souqly",
   "displayName": "Souqly",
   "enabled": true,
   "sslRequired": "external",
