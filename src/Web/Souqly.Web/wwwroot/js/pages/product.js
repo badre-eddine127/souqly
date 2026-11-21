@@ -1,7 +1,9 @@
 import { api, get, problemMessage } from "../api.js";
 import { esc, formatMoney } from "../format.js";
-import { empty, productVisual, toast } from "../ui.js";
+import { empty, toast } from "../ui.js";
 import { session } from "../session.js";
+import { productImage } from "../images.js";
+import { mountSpin } from "../spin3d.js";
 
 /** US-02 : fiche produit (prix, vendeur, disponibilité) et ajout au panier (US-05). */
 export async function productPage(app, [id]) {
@@ -23,8 +25,34 @@ export async function productPage(app, [id]) {
   app.innerHTML = `
     <a href="/" data-link class="back">← Retour au souk</a>
     <div class="product-layout">
-      ${productVisual(product.name, product.categoryId, "lg")}
-      <div>
+      <div class="showcase">
+        <div class="turntable" title="Glissez pour faire tourner le produit">
+          <div class="spin">
+            <div class="face face-front">
+              <img src="${productImage(product.name, product.categoryId, 1200)}" alt="${esc(product.name)}" draggable="false" onerror="this.remove()" />
+              <div class="face-light" aria-hidden="true"></div>
+              <span class="face-tag">Face</span>
+            </div>
+            <div class="face face-back" aria-hidden="true">
+              <img src="${productImage(product.name, product.categoryId, 1200)}" alt="" draggable="false" onerror="this.remove()" />
+              <div class="face-light"></div>
+              <div class="back-card">
+                <span class="artisan">Fait main · ${esc(vendor.city || "Maroc")}</span>
+                <strong>${esc(product.name)}</strong>
+                <span class="muted small">${esc(vendor.name)} · réf. ${esc(product.sku)}</span>
+                <span class="price">${formatMoney(product.price.amount, product.price.currency)}</span>
+              </div>
+              <span class="face-tag">Dos · détail</span>
+            </div>
+          </div>
+          <div class="turntable-shadow" aria-hidden="true"></div>
+        </div>
+        <div class="showcase-actions">
+          <span class="muted small">⟲ Glissez pour faire tourner</span>
+          <button class="btn btn-ghost" data-flip type="button">Voir l'autre côté</button>
+        </div>
+      </div>
+      <div class="product-info-3d">
         ${statusTag}
         <h1>${esc(product.name)}</h1>
         <p class="price big">${formatMoney(product.price.amount, product.price.currency)}</p>
@@ -68,4 +96,7 @@ export async function productPage(app, [id]) {
     await session.refreshCart();
     toast(`${quantity} × ${product.name} ajouté au panier`);
   });
+
+  // Le produit tourne en 3D ; le routeur appelle ce nettoyage en quittant la page.
+  return mountSpin(app.querySelector(".turntable"));
 }

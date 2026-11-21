@@ -97,7 +97,19 @@ export async function catalogPage(app, _, params) {
             const canBuy = available > 0 && !(session.is("VENDOR") && !session.is("CUSTOMER"));
             return `
               <a href="/produits/${p.id}" data-link class="product">
-                <div style="position:relative">${productVisual(p.name, p.categoryId)}${tag}</div>
+                <div class="flip3d">
+                  <div class="flip3d-inner">
+                    <div class="flip3d-face">${productVisual(p.name, p.categoryId)}${tag}</div>
+                    <div class="flip3d-face flip3d-back" aria-hidden="true">
+                      ${productVisual(p.name, p.categoryId)}
+                      <div class="flip3d-info">
+                        <span class="artisan">Fait main</span>
+                        <p>${esc((p.description || "Pièce artisanale du Maroc.").slice(0, 110))}</p>
+                        <span class="flip3d-cta">Voir le produit →</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div class="product-info">
                   <div class="artisan">${esc(v.name)}</div>
                   <h3>${esc(p.name)}</h3>

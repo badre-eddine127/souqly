@@ -81,7 +81,12 @@ app.Use(async (context, next) =>
 });
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // Le navigateur revalide chaque fichier (réponse 304 s'il n'a pas changé) : une nouvelle version du site
+    // est visible tout de suite, y compris les modules JavaScript importés par les pages.
+    OnPrepareResponse = context => context.Context.Response.Headers.CacheControl = "no-cache",
+});
 app.UseAuthentication();
 app.UseAuthorization();
 

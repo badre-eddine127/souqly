@@ -31,6 +31,13 @@ public sealed class ProblemDetailsExceptionHandler(
             _ => null,
         };
 
+        if (exception is DependencyUnavailableException unavailable)
+        {
+            // La cause (réponse de l'autre service, délai dépassé…) n'est pas renvoyée au client : elle reste dans les logs.
+            logger.LogWarning(unavailable.InnerException ?? unavailable, "Dépendance {Dependency} indisponible sur {Method} {Path}",
+                unavailable.Dependency, httpContext.Request.Method, httpContext.Request.Path);
+        }
+
         if (problem is null)
         {
             logger.LogError(exception, "Erreur inattendue sur {Method} {Path}", httpContext.Request.Method, httpContext.Request.Path);

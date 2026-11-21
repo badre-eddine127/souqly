@@ -38,14 +38,25 @@ internal sealed class KeycloakVendorRoleGranter(HttpClient http, IOptions<Keyclo
         var token = await GetTokenAsync(settings, ct);
         var admin = $"admin/realms/{Uri.EscapeDataString(settings.Realm)}";
 
-        using var roleRequest = new HttpRequestMessage(HttpMethod.Get, $"{admin}/roles/{Uri.EscapeDataString(settings.VendorRole)}");
-        roleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var roleResponse = await http.SendAsync(roleRequest, ct);
-        roleResponse.EnsureSuccessStatusCode();
-        var role = await roleResponse.Content.ReadFromJsonAsync<RoleRepresentation>(ct)
-                   ?? throw new HttpRequestException("Rôle VENDOR introuvable dans Keycloak.");
+        var user = $"{admin}/users/{Uri.EscapeDataString(userId)}/role-mappings/realm";
 
-        using var grant = new HttpRequestMessage(HttpMethod.Post, $"{admin}/users/{Uri.EscapeDataString(userId)}/role-mappings/realm")
+        // Le rôle est cherché parmi les rôles attribuables à cet utilisateur : view-users suffit
+        // (lire /roles/VENDOR exigerait view-realm, un droit sur toute la configuration du realm).
+        var available = await GetRolesAsync($"{user}/available", token, ct);
+        var role = available.FirstOrDefault(r => r.Name == settings.VendorRole);
+        if (role is null)
+        {
+            // Absent des rôles attribuables : soit l'utilisateur l'a déjà (opération idempotente), soit il n'existe pas.
+            var assigned = await GetRolesAsync(user, token, ct);
+            if (assigned.Any(r => r.Name == settings.VendorRole))
+            {
+                return;
+            }
+
+            throw new HttpRequestException($"Rôle {settings.VendorRole} introuvable dans Keycloak.");
+        }
+
+        using var grant = new HttpRequestMessage(HttpMethod.Post, user)
         {
             Content = JsonContent.Create(new[] { role }),
         };
@@ -56,7 +67,32 @@ internal sealed class KeycloakVendorRoleGranter(HttpClient http, IOptions<Keyclo
             throw new InvalidOperationException($"Utilisateur {userId} inconnu de Keycloak.");
         }
 
-        grantResponse.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(grantResponse, "l'attribution du rôle", ct);
+    }
+
+    private async Task<IReadOnlyList<RoleRepresentation>> GetRolesAsync(string path, string token, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await http.SendAsync(request, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new InvalidOperationException("Utilisateur inconnu de Keycloak.");
+        }
+
+        await EnsureSuccessAsync(response, path, ct);
+        return await response.Content.ReadFromJsonAsync<List<RoleRepresentation>>(ct) ?? [];
+    }
+
+    /// <summary>Comme EnsureSuccessStatusCode, mais le message dit quel appel a échoué et pourquoi (visible dans les logs).</summary>
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string what, CancellationToken ct)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(
+                $"Keycloak a répondu {(int)response.StatusCode} à {what} : {body[..Math.Min(body.Length, 300)]}", null, response.StatusCode);
+        }
     }
 
     private async Task<string> GetTokenAsync(KeycloakAdminOptions settings, CancellationToken ct)
@@ -69,7 +105,7 @@ internal sealed class KeycloakVendorRoleGranter(HttpClient http, IOptions<Keyclo
         });
         using var response = await http.PostAsync(
             $"realms/{Uri.EscapeDataString(settings.Realm)}/protocol/openid-connect/token", form, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "la demande de jeton du compte catalog-service", ct);
         var token = await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
                     ?? throw new HttpRequestException("Réponse de jeton vide.");
         return token.AccessToken;
