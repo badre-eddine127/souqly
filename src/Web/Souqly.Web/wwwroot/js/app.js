@@ -9,6 +9,10 @@ import { ordersPage, orderPage } from "./pages/orders.js";
 import { notificationsPage } from "./pages/notifications.js";
 import { vendorProductsPage } from "./pages/vendor-products.js";
 import { vendorOrdersPage } from "./pages/vendor-orders.js";
+import { vendorDashboardPage } from "./pages/vendor-dashboard.js";
+import { becomeVendorPage } from "./pages/become-vendor.js";
+import { adminVendorsPage } from "./pages/admin-vendors.js";
+import { adminAuditPage } from "./pages/admin-audit.js";
 
 // Routes du site (navigation sans rechargement grâce à l'API History).
 const routes = [
@@ -18,8 +22,12 @@ const routes = [
   { path: /^\/commandes$/, page: ordersPage, role: "CUSTOMER" },
   { path: /^\/commandes\/([0-9a-f-]{36})$/, page: orderPage, role: "CUSTOMER" },
   { path: /^\/notifications$/, page: notificationsPage, role: "ANY" },
+  { path: /^\/vendre$/, page: becomeVendorPage },
+  { path: /^\/vendeur\/tableau-de-bord$/, page: vendorDashboardPage, role: "VENDOR" },
   { path: /^\/vendeur\/produits$/, page: vendorProductsPage, role: "VENDOR" },
   { path: /^\/vendeur\/commandes$/, page: vendorOrdersPage, role: "VENDOR" },
+  { path: /^\/admin\/vendeurs$/, page: adminVendorsPage, role: "ADMIN" },
+  { path: /^\/admin\/journal$/, page: adminAuditPage, role: "ADMIN" },
 ];
 
 const app = document.getElementById("app");
@@ -44,8 +52,9 @@ async function render() {
     return;
   }
   if (r.role && r.role !== "ANY" && !session.is(r.role)) {
-    const who = r.role === "VENDOR" ? "vendeur" : "client";
-    app.innerHTML = empty("Accès réservé", `<p>Cette page est réservée aux comptes ${who}.</p>`);
+    const who = { VENDOR: "vendeur", ADMIN: "administrateur" }[r.role] ?? "client";
+    const hint = r.role === "VENDOR" ? `<a class="btn btn-clay" href="/vendre" data-link>Ouvrir ma boutique</a>` : "";
+    app.innerHTML = empty("Accès réservé", `<p>Cette page est réservée aux comptes ${who}.</p>${hint}`);
     return;
   }
 
@@ -64,6 +73,9 @@ const ICONS = {
   truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
 };
 const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -76,7 +88,9 @@ function renderNav() {
 
   let nav = link("/", "Catalogue");
   if (session.is("CUSTOMER")) nav += link("/commandes", "Mes commandes");
-  if (session.is("VENDOR")) nav += link("/vendeur/produits", "Mes produits") + link("/vendeur/commandes", "Commandes à préparer");
+  if (session.is("VENDOR")) nav += link("/vendeur/tableau-de-bord", "Tableau de bord") + link("/vendeur/produits", "Mes produits") + link("/vendeur/commandes", "Commandes");
+  if (session.is("ADMIN")) nav += link("/admin/vendeurs", "Boutiques") + link("/admin/journal", "Journal d'audit");
+  if (!session.is("VENDOR") && !session.is("ADMIN")) nav += link("/vendre", "Vendre sur Souqly");
   document.getElementById("nav").innerHTML = nav;
 
   const u = session.user;
@@ -99,7 +113,9 @@ function renderNav() {
          <div class="dropdown" role="menu" hidden>
            <div class="dropdown-head"><strong>${esc(name)}</strong><span>${esc(u.username ?? "")} · ${esc(roles)}</span></div>
            ${session.is("CUSTOMER") ? menuItem("/commandes", "box", "Mes commandes") + menuItem("/panier", "bag", "Mon panier") : ""}
-           ${session.is("VENDOR") ? menuItem("/vendeur/produits", "store", "Mes produits") + menuItem("/vendeur/commandes", "truck", "Commandes à préparer") : ""}
+           ${session.is("VENDOR") ? menuItem("/vendeur/tableau-de-bord", "chart", "Tableau de bord") + menuItem("/vendeur/produits", "store", "Mes produits") + menuItem("/vendeur/commandes", "truck", "Commandes à préparer") : ""}
+           ${session.is("ADMIN") ? menuItem("/admin/vendeurs", "shield", "Demandes de boutique") + menuItem("/admin/journal", "list", "Journal d'audit") : ""}
+           ${!session.is("VENDOR") && !session.is("ADMIN") ? menuItem("/vendre", "store", "Ouvrir ma boutique") : ""}
            ${menuItem("/notifications", "bell", "Notifications")}
            <button class="logout" data-action="logout" role="menuitem">${icon("logout")}Se déconnecter</button>
          </div>

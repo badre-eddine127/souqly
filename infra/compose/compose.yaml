@@ -74,6 +74,7 @@ services:
       KC_HOSTNAME: http://localhost:8180
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       ORDERING_CLIENT_SECRET: ${ORDERING_CLIENT_SECRET}
+      CATALOG_CLIENT_SECRET: ${CATALOG_CLIENT_SECRET}
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ../keycloak/themes:/opt/keycloak/themes:ro   # page de connexion « lampe »
@@ -150,6 +151,8 @@ services:
     environment:
       <<: *service-env
       ConnectionStrings__CatalogDb: Host=postgres;Database=catalog_db;Username=catalog;Password=${CATALOG_DB_PASSWORD}
+      KeycloakAdmin__BaseAddress: http://keycloak:8080
+      KeycloakAdmin__ClientSecret: ${CATALOG_CLIENT_SECRET}
     healthcheck:
       test: ["CMD", "dotnet", "Souqly.Catalog.Api.dll", "--healthcheck"]
     depends_on:
@@ -253,11 +256,13 @@ services:
       ReverseProxy__Clusters__ordering__Destinations__d1__Address: http://ordering:8080
       ReverseProxy__Clusters__payment__Destinations__d1__Address: http://payment:8080
       ReverseProxy__Clusters__notification__Destinations__d1__Address: http://notification:8080
+      ConnectionStrings__Redis: redis:6379,abortConnect=false   # journal d'audit (US-18)
     healthcheck:
       test: ["CMD", "dotnet", "Souqly.ApiGateway.dll", "--healthcheck"]
     ports:
       - "8080:8080"   # seul point d'entrée exposé : les services métier restent sur le réseau interne
     depends_on:
+      redis: { condition: service_healthy }
       catalog: { condition: service_healthy }
       inventory: { condition: service_healthy }
       cart: { condition: service_healthy }

@@ -38,6 +38,12 @@ internal static class OrderingEndpoints
             .WithSummary("Commandes contenant mes produits (seulement mes lignes)")
             .RequireAuthorization(Policies.Vendor);
 
+        app.MapGet("/api/v1/vendor/dashboard", async (HttpContext http, OrderService service, CancellationToken ct) =>
+                TypedResults.Ok(await service.DashboardAsync(http.CurrentUser(), ct)))
+            .WithTags("Espace vendeur")
+            .WithSummary("Tableau de bord : ventes du jour, commandes à préparer (US-17)")
+            .RequireAuthorization(Policies.Vendor);
+
         var vendor = app.MapGroup("/api/v1/vendor/orders/{id:guid}").WithTags("Espace vendeur").RequireAuthorization(Policies.Vendor);
 
         vendor.MapPost("/shipment", async (Guid id, ShipRequest request, HttpContext http, OrderService service, CancellationToken ct) =>

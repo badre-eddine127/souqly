@@ -7,6 +7,9 @@ public interface IStockStore
 
     void Add(StockItem item);
 
+    /// <summary>US-17 : stocks d'un vendeur dont le disponible est inférieur ou égal au seuil (ruptures et stocks bas).</summary>
+    Task<IReadOnlyList<StockItem>> ListLowForVendorAsync(string vendorId, int threshold, CancellationToken ct);
+
     /// <summary>
     /// Réserve <paramref name="quantity"/> unités si et seulement si elles sont disponibles,
     /// en une seule requête atomique (UPDATE … WHERE on_hand - reserved >= qty). Renvoie false sinon.

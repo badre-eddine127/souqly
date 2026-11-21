@@ -60,7 +60,8 @@ public sealed class TokenRefresher(
 {
     public const string HttpClientName = "keycloak-token";
 
-    public async Task<string?> GetAccessTokenAsync(HttpContext http)
+    /// <summary>Jeton d'accès valide ; <paramref name="force"/> le renouvelle tout de suite (rôles modifiés dans Keycloak, US-16).</summary>
+    public async Task<string?> GetAccessTokenAsync(HttpContext http, bool force = false)
     {
         var result = await http.AuthenticateAsync();
         if (!result.Succeeded || result.Properties is null)
@@ -71,7 +72,7 @@ public sealed class TokenRefresher(
         var properties = result.Properties;
         var accessToken = properties.GetTokenValue("access_token");
         var expiresAt = properties.GetTokenValue("expires_at");
-        if (accessToken is not null && DateTimeOffset.TryParse(expiresAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var expiry)
+        if (!force && accessToken is not null && DateTimeOffset.TryParse(expiresAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var expiry)
             && expiry > clock.GetUtcNow().AddSeconds(30))
         {
             return accessToken;

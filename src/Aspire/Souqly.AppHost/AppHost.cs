@@ -22,6 +22,10 @@ IResourceBuilder<IResourceWithConnectionString> kafka;
 var orderingSecret = builder.AddParameter("ordering-client-secret",
     new GenerateParameterDefault { MinLength = 32, Special = false }, secret: true, persist: true);
 
+// Secret du compte technique de Catalog (US-16 : attribue le rôle VENDOR après validation d'une boutique).
+var catalogSecret = builder.AddParameter("catalog-client-secret",
+    new GenerateParameterDefault { MinLength = 32, Special = false }, secret: true, persist: true);
+
 if (useExistingInfrastructure)
 {
     catalogDb = builder.AddConnectionString("CatalogDb");
@@ -64,6 +68,7 @@ var keycloak = useExistingInfrastructure ? null : builder.AddKeycloak("keycloak"
     .WithRealmImport("../../../infra/keycloak")
     .WithBindMount("../../../infra/keycloak/themes", "/opt/keycloak/themes", isReadOnly: true)
     .WithEnvironment("ORDERING_CLIENT_SECRET", orderingSecret)
+    .WithEnvironment("CATALOG_CLIENT_SECRET", catalogSecret)
     .WithDataVolume("souqly-keycloak-data")
     .WithLifetime(ContainerLifetime.Persistent);
 
@@ -86,6 +91,8 @@ var grafana = useExistingInfrastructure ? null : builder.AddContainer("grafana",
 var catalog = builder.AddProject<Projects.Souqly_Catalog_Api>("catalog")
     .WithReference(catalogDb)
     .WaitFor(catalogDb)
+    .WithEnvironment("KeycloakAdmin__BaseAddress", "http://localhost:8180")
+    .WithEnvironment("KeycloakAdmin__ClientSecret", catalogSecret)
     .WithHttpHealthCheck("/health/ready");
 
 var inventory = builder.AddProject<Projects.Souqly_Inventory_Api>("inventory")
@@ -138,9 +145,15 @@ if (grafana is not null)
 // Les services valident les jetons Keycloak : ils démarrent une fois Keycloak prêt.
 if (keycloak is not null)
 {
-    // Page de connexion « lampe » (infra/keycloak/themes/souqly) appliquée au realm dès que Keycloak est prêt.
-    builder.Eventing.Subscribe<ResourceReadyEvent>(keycloak.Resource, (e, ct) =>
-        KeycloakTheme.ApplyAsync(keycloak.Resource, "http://localhost:8180", Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(e.Services).CreateLogger("Souqly.KeycloakTheme"), ct));
+    // Dès que Keycloak est prêt : thème de connexion « lampe » et compte technique catalog-service (KeycloakBootstrap).
+    builder.Eventing.Subscribe<ResourceReadyEvent>(keycloak.Resource, async (e, ct) =>
+        await KeycloakBootstrap.ApplyAsync(
+            keycloak.Resource,
+            "http://localhost:8180",
+            await catalogSecret.Resource.GetValueAsync(ct) ?? string.Empty,
+            Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                .GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(e.Services).CreateLogger("Souqly.KeycloakBootstrap"),
+            ct));
 
     foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification })
     {
@@ -150,6 +163,8 @@ if (keycloak is not null)
 
 // La passerelle est le seul point d'entrée : elle attend que les six services soient sains.
 var gateway = builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
+    .WithReference(redis)   // US-18 : journal d'audit partagé
+    .WaitFor(redis)
     .WithEnvironment("ReverseProxy__Clusters__catalog__Destinations__d1__Address", catalog.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__inventory__Destinations__d1__Address", inventory.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__cart__Destinations__d1__Address", cart.GetEndpoint("http"))

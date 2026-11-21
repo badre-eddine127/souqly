@@ -5,6 +5,43 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/v1/vendor/stock-alerts": {
+            "get": {
+                "tags": [
+                    "Espace vendeur"
+                ],
+                "summary": "Ruptures et stocks bas de mes produits (US-17)",
+                "parameters": [
+                    {
+                        "name": "threshold",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/StockItemResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/stock-items/{productId}": {
             "get": {
                 "tags": [
@@ -319,8 +356,7 @@
                     "inStock": {
                         "type": "boolean"
                     }
-                },
-                "description": "Vue publique : seule la disponibilit\u00e9 est expos\u00e9e (pas le stock physique ni les r\u00e9servations)."
+                }
             },
             "HttpValidationProblemDetails": {
                 "type": "object",
@@ -437,8 +473,7 @@
                             "$ref": "#/components/schemas/ReserveLine"
                         }
                     }
-                },
-                "description": "Commande ReserveStock (appel\u00e9e par Ordering ; transport\u00e9e par Kafka au sprint 3)."
+                }
             },
             "SetStockRequest": {
                 "required": [
@@ -506,12 +541,45 @@
                         "type": "string",
                         "format": "date-time"
                     }
-                },
-                "description": "Vue du vendeur propri\u00e9taire."
+                }
+            }
+        },
+        "securitySchemes": {
+            "oauth2": {
+                "type": "oauth2",
+                "description": "Connexion Keycloak (realm souqly), client public souqly-web avec PKCE.",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/auth",
+                        "tokenUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/token",
+                        "scopes": {
+                            "openid": "Identit\u00e9 OpenID Connect"
+                        }
+                    }
+                }
+            },
+            "bearer": {
+                "type": "http",
+                "description": "Jeton d'acc\u00e8s Keycloak coll\u00e9 \u00e0 la main (Authorization: Bearer \u2026).",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
             }
         }
     },
+    "security": [
+        {
+            "oauth2": [
+                "openid"
+            ]
+        },
+        {
+            "bearer": []
+        }
+    ],
     "tags": [
+        {
+            "name": "Espace vendeur"
+        },
         {
             "name": "Stock"
         },

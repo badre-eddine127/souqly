@@ -23,6 +23,18 @@ public static class SessionEndpoints
             new AuthenticationProperties { RedirectUri = "/" },
             [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
 
+        // US-16 : après la validation de sa boutique, le jeton est renouvelé pour porter le rôle VENDOR (sans se reconnecter).
+        session.MapPost("/refresh", async (HttpContext http, TokenRefresher tokens) =>
+        {
+            if (http.User.Identity?.IsAuthenticated != true)
+            {
+                return Results.Unauthorized();
+            }
+
+            var token = await tokens.GetAccessTokenAsync(http, force: true);
+            return token is null ? Results.Unauthorized() : Results.Json(new { roles = RealmRoles(token) });
+        });
+
         // Noms des ateliers des vendeurs (le catalogue ne stocke que leur identifiant Keycloak).
         session.MapGet("/vendors", (VendorDirectory directory) => Results.Json(directory.All));
 

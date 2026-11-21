@@ -346,6 +346,203 @@
                     }
                 }
             }
+        },
+        "/api/v1/vendors": {
+            "post": {
+                "tags": [
+                    "Vendeurs"
+                ],
+                "summary": "Demander l'ouverture d'une boutique (utilisateur connect\u00e9)",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VendorApplicationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorApplicationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorApplicationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "Vendeurs"
+                ],
+                "summary": "Demandes \u00e0 traiter (administrateur)",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PageResponseOfVendorApplicationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vendors/me": {
+            "get": {
+                "tags": [
+                    "Vendeurs"
+                ],
+                "summary": "Ma demande d'ouverture de boutique",
+                "operationId": "GetMyVendorApplication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorApplicationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vendors/{id}/approval": {
+            "post": {
+                "tags": [
+                    "Vendeurs"
+                ],
+                "summary": "Valider ou refuser une boutique (administrateur)",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VendorDecisionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorApplicationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vendors/shops": {
+            "get": {
+                "tags": [
+                    "Vendeurs"
+                ],
+                "summary": "Boutiques valid\u00e9es (nom et ville)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/VendorShopResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -444,8 +641,7 @@
                     "currency": {
                         "type": "string"
                     }
-                },
-                "description": "Montant tel qu'il circule dans l'API : cha\u00eene d\u00e9cimale + devise (jamais un nombre flottant)."
+                }
             },
             "PageResponseOfProductResponse": {
                 "required": [
@@ -461,6 +657,57 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/ProductResponse"
+                        }
+                    },
+                    "page": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "size": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalElements": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalPages": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                },
+                "description": "R\u00e9ponse pagin\u00e9e normalis\u00e9e : { content, page, size, totalElements, totalPages }."
+            },
+            "PageResponseOfVendorApplicationResponse": {
+                "required": [
+                    "content",
+                    "page",
+                    "size",
+                    "totalElements",
+                    "totalPages"
+                ],
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VendorApplicationResponse"
                         }
                     },
                     "page": {
@@ -528,8 +775,7 @@
                     "purchasable": {
                         "type": "boolean"
                     }
-                },
-                "description": "Instantan\u00e9 de prix pour Ordering (RG-02) : prix et disponibilit\u00e9 commerciale au moment de la commande."
+                }
             },
             "ProductRequest": {
                 "required": [
@@ -568,8 +814,7 @@
                         "type": "boolean",
                         "default": false
                     }
-                },
-                "description": "Corps de POST /api/v1/products et PUT /api/v1/products/{id}."
+                }
             },
             "ProductResponse": {
                 "required": [
@@ -629,9 +874,155 @@
                         "format": "date-time"
                     }
                 }
+            },
+            "VendorApplicationRequest": {
+                "required": [
+                    "shopName",
+                    "city",
+                    "description"
+                ],
+                "type": "object",
+                "properties": {
+                    "shopName": {
+                        "type": "string"
+                    },
+                    "city": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "VendorApplicationResponse": {
+                "required": [
+                    "id",
+                    "userId",
+                    "shopName",
+                    "city",
+                    "description",
+                    "status",
+                    "rejectionReason",
+                    "submittedAt",
+                    "decidedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "userId": {
+                        "type": "string"
+                    },
+                    "shopName": {
+                        "type": "string"
+                    },
+                    "city": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "rejectionReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "submittedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "decidedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "VendorDecisionRequest": {
+                "required": [
+                    "approved",
+                    "reason"
+                ],
+                "type": "object",
+                "properties": {
+                    "approved": {
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "VendorShopResponse": {
+                "required": [
+                    "vendorId",
+                    "shopName",
+                    "city"
+                ],
+                "type": "object",
+                "properties": {
+                    "vendorId": {
+                        "type": "string"
+                    },
+                    "shopName": {
+                        "type": "string"
+                    },
+                    "city": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "oauth2": {
+                "type": "oauth2",
+                "description": "Connexion Keycloak (realm souqly), client public souqly-web avec PKCE.",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/auth",
+                        "tokenUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/token",
+                        "scopes": {
+                            "openid": "Identit\u00e9 OpenID Connect"
+                        }
+                    }
+                }
+            },
+            "bearer": {
+                "type": "http",
+                "description": "Jeton d'acc\u00e8s Keycloak coll\u00e9 \u00e0 la main (Authorization: Bearer \u2026).",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
             }
         }
     },
+    "security": [
+        {
+            "oauth2": [
+                "openid"
+            ]
+        },
+        {
+            "bearer": []
+        }
+    ],
     "tags": [
         {
             "name": "Espace vendeur"
@@ -644,6 +1035,9 @@
         },
         {
             "name": "Produits"
+        },
+        {
+            "name": "Vendeurs"
         }
     ]
 }

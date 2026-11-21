@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Souqly.Catalog.Api;
 using Souqly.Catalog.Application.Products;
+using Souqly.Catalog.Application.Vendors;
 using Souqly.Catalog.Infrastructure;
 using Souqly.Catalog.Infrastructure.Persistence;
 using Souqly.Chassis;
@@ -17,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddSouqlyDefaults();
 builder.Services.AddCatalogInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<VendorService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<ProductRequestValidator>();
 builder.AddSouqlyOpenApi("Souqly Catalog API");
@@ -29,6 +31,7 @@ app.UseSouqlyDefaults();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapCatalogEndpoints();
+app.MapVendorEndpoints();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {

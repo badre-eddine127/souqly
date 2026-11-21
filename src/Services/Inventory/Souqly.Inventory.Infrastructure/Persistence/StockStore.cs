@@ -13,6 +13,13 @@ internal sealed class StockStore(InventoryDbContext db) : IStockStore
 
     public void Add(StockItem item) => db.StockItems.Add(item);
 
+    public async Task<IReadOnlyList<StockItem>> ListLowForVendorAsync(string vendorId, int threshold, CancellationToken ct) =>
+        await db.StockItems.AsNoTracking()
+            .Where(s => s.VendorId == vendorId && s.OnHand - s.Reserved <= threshold)
+            .OrderBy(s => s.OnHand - s.Reserved).ThenBy(s => s.ProductId)
+            .Take(100)
+            .ToListAsync(ct);
+
     /// <summary>
     /// ADR-007 : la condition est dans le WHERE, PostgreSQL l'évalue et écrit de façon atomique sous verrou de ligne.
     /// 500 requêtes concurrentes ne peuvent pas toutes réussir : seules celles qui trouvent du disponible modifient une ligne.

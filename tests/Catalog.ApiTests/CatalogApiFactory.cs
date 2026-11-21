@@ -1,6 +1,9 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Souqly.Catalog.Application.Vendors;
 using Souqly.Testing;
 
 namespace Catalog.ApiTests;
@@ -9,6 +12,9 @@ namespace Catalog.ApiTests;
 public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgresFixture _postgres = new();
+
+    /// <summary>Rôles VENDOR attribués pendant les tests (à la place de l'API d'administration Keycloak).</summary>
+    public RecordingRoleGranter Roles { get; } = new();
 
     public async Task InitializeAsync() => await _postgres.InitializeAsync();
 
@@ -21,7 +27,11 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureTestServices(services => services.UseTestJwt());
+        builder.ConfigureTestServices(services =>
+        {
+            services.UseTestJwt();
+            services.AddSingleton<IVendorRoleGranter>(Roles);   // pas de Keycloak : on enregistre les attributions
+        });
         builder.UseSetting("ConnectionStrings:CatalogDb", _postgres.ConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
     }
@@ -30,5 +40,16 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public HttpClient ClientAs(string userId, params string[] roles)
     {
         return CreateClient().WithToken(TestJwt.Token(userId, roles));
+    }
+}
+
+public sealed class RecordingRoleGranter : IVendorRoleGranter
+{
+    public ConcurrentBag<string> Granted { get; } = [];
+
+    public Task GrantVendorRoleAsync(string userId, CancellationToken ct)
+    {
+        Granted.Add(userId);
+        return Task.CompletedTask;
     }
 }

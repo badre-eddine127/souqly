@@ -38,6 +38,9 @@ public interface IOrderRepository
 
     Task<(IReadOnlyList<Order> Items, long Total)> ListForVendorAsync(string vendorId, OrderStatus? status, int skip, int take, CancellationToken ct);
 
+    /// <summary>US-17 : commandes d'un vendeur passées depuis <paramref name="since"/>, plus toutes celles encore à préparer (CONFIRMED).</summary>
+    Task<IReadOnlyList<Order>> ListForVendorDashboardAsync(string vendorId, DateTimeOffset since, CancellationToken ct);
+
     void Add(Order order, IdempotencyRecord idempotency);
 
     /// <summary>Enregistre ; lève <see cref="DuplicateIdempotencyKeyException"/> si la même clé a été enregistrée en parallèle.</summary>

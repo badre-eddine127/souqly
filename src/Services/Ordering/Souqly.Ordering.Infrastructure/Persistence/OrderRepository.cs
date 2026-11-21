@@ -34,6 +34,13 @@ internal sealed class OrderRepository(OrderingDbContext db) : IOrderRepository
         return (items, total);
     }
 
+    public async Task<IReadOnlyList<Order>> ListForVendorDashboardAsync(string vendorId, DateTimeOffset since, CancellationToken ct) =>
+        await db.Orders.AsNoTracking()
+            .Where(o => o.Lines.Any(l => l.VendorId == vendorId) && (o.CreatedAt >= since || o.Status == OrderStatus.Confirmed))
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
     public void Add(Order order, IdempotencyRecord idempotency)
     {
         db.Orders.Add(order);

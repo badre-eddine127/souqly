@@ -62,6 +62,9 @@ Projet ASP.NET Core `src/Web/Souqly.Web` : les pages sont du **HTML, CSS et Java
 | Mes commandes, suivi (rafraîchi toutes les secondes), annulation, colis | client | US-07, US-08, US-14 |
 | Mes produits, mon stock, commandes à préparer et expédition | vendeur | US-03, US-10, US-13 |
 | Notifications | client, vendeur | US-15 |
+| Vendre sur Souqly : demande de boutique, suivi, activation de l'espace vendeur | visiteur, client | US-16 |
+| Tableau de bord : ventes du jour, commandes à préparer, ruptures et stocks bas | vendeur | US-17 |
+| Demandes de boutique (valider, refuser avec motif), journal d'audit | administrateur | US-16, US-18 |
 
 - **Connexion Keycloak côté serveur** (Authorization Code + PKCE, client `souqly-web`) : les jetons restent dans le cookie de session chiffré (`HttpOnly`), **le JavaScript ne voit jamais de jeton** (modèle *Backend for Frontend*).
 - Le JavaScript appelle `/api/...` sur le même site ; ASP.NET Core ajoute le jeton (renouvelé automatiquement) et relaie vers la passerelle (YARP).
@@ -100,7 +103,9 @@ Realm Keycloak `souqly` (console : http://localhost:8180, utilisateur `admin`). 
 | --- | --- | --- |
 | `sara` | CUSTOMER | panier, commandes |
 | `fatima`, `karim` | VENDOR (+ CUSTOMER) | produits, stock, commandes reçues |
-| `admin-souqly` | ADMIN (+ CUSTOMER) | administration |
+| `admin-souqly` | ADMIN (+ CUSTOMER) | demandes de boutique, journal d'audit |
+
+Pour tester US-16 : créez un compte (lien « Créer un compte » de la page de connexion), demandez une boutique dans **Vendre sur Souqly**, validez-la avec `admin-souqly` (**Boutiques**), puis revenez sur le premier compte et cliquez **Activer mon espace vendeur** : le rôle VENDOR est attribué dans Keycloak par le compte technique `catalog-service` (créé automatiquement au démarrage par l'AppHost).
 
 Dans Scalar, **Authorize › oauth2 › Authorize** ouvre la page de connexion Keycloak (PKCE). En ligne de commande :
 
@@ -122,7 +127,7 @@ Les tests d'intégration utilisent PostgreSQL via Testcontainers (Docker requis)
 
 ### Tests d'acceptation (Gherkin)
 
-Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les six services réels démarrés en mémoire (Catalog, Cart, Ordering, Inventory, Payment, Notification ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`.
+Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les services réels démarrés en mémoire (passerelle, Catalog, Cart, Ordering, Inventory, Payment, Notification ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`.
 
 ## Structure
 

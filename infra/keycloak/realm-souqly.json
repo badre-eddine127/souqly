@@ -158,6 +158,19 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "catalog-service",
+      "name": "Service Catalog (compte technique)",
+      "description": "Client confidentiel en client credentials : attribue le rôle VENDOR après validation d'une boutique (US-16).",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${CATALOG_CLIENT_SECRET:dev-catalog-secret-change-me}",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ],
   "users": [
@@ -168,6 +181,17 @@
       "realmRoles": [
         "SERVICE"
       ]
+    },
+    {
+      "username": "service-account-catalog-service",
+      "enabled": true,
+      "serviceAccountClientId": "catalog-service",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users"
+        ]
+      }
     },
     {
       "username": "sara",

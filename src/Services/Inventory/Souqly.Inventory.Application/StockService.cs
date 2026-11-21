@@ -17,6 +17,16 @@ public sealed class StockService(IStockStore store, TimeProvider clock)
     public async Task<StockItemResponse> GetForVendorAsync(long productId, CurrentUser vendor, CancellationToken ct) =>
         StockItemResponse.From(await FindOwnedAsync(productId, vendor, ct));
 
+    /// <summary>US-17 : ruptures (disponible 0) et stocks bas (disponible ≤ seuil) du vendeur, les plus urgents d'abord.</summary>
+    public async Task<IReadOnlyList<StockItemResponse>> AlertsAsync(CurrentUser vendor, int? threshold, CancellationToken ct)
+    {
+        var limit = Math.Clamp(threshold ?? DefaultLowStockThreshold, 0, 1000);
+        return (await store.ListLowForVendorAsync(vendor.Id, limit, ct)).Select(StockItemResponse.From).ToList();
+    }
+
+    /// <summary>Seuil de stock bas par défaut (unités disponibles).</summary>
+    public const int DefaultLowStockThreshold = 3;
+
     /// <summary>Fixe le stock physique ; crée la ligne de stock à la première déclaration.</summary>
     public async Task<StockItemResponse> SetAsync(long productId, SetStockRequest request, CurrentUser vendor, CancellationToken ct)
     {

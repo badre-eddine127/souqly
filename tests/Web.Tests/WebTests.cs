@@ -111,6 +111,23 @@ public class WebTests(WebFactory factory) : IClassFixture<WebFactory>
     }
 
     [Fact]
+    public async Task Les_pages_vendeur_et_administration_sont_servies()
+    {
+        foreach (var page in new[] { "become-vendor", "vendor-dashboard", "admin-vendors", "admin-audit" })
+        {
+            (await Client().GetAsync($"/js/pages/{page}.js")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        (await Client().GetStringAsync("/admin/journal")).ShouldContain("/js/app.js");
+    }
+
+    [Fact]
+    public async Task Le_renouvellement_des_roles_exige_une_session()
+    {
+        (await Client().PostAsync("/session/refresh", null)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task Un_visiteur_n_est_pas_connecte()
     {
         var user = await Client().GetFromJsonAsync<SessionEndpoints.UserInfo>("/session/user");

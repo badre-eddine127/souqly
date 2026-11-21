@@ -1,10 +1,12 @@
 extern alias cart;
 extern alias catalog;
+extern alias gateway;
 extern alias inventory;
 extern alias notification;
 extern alias ordering;
 extern alias payment;
 
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
@@ -12,15 +14,19 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Souqly.Catalog.Application.Vendors;
 using Souqly.Messaging;
 using Souqly.Testing;
+using Yarp.ReverseProxy.Forwarder;
 
 namespace Acceptance.Tests.Support;
 
 /// <summary>
 /// La plateforme Souqly complète pour les scénarios Gherkin : Catalog, Cart, Ordering, Inventory, Payment et
 /// Notification, chacun avec sa propre base (PostgreSQL ou Redis), reliés par un broker en mémoire.
-/// Ordering appelle le vrai Catalog (prix figés, RG-02) ; seul Keycloak est remplacé par des jetons de test.
+/// Ordering appelle le vrai Catalog (prix figés, RG-02) ; seul Keycloak est remplacé par des jetons de test
+/// (et par un enregistreur pour l'attribution du rôle VENDOR, US-16). La passerelle est hébergée aussi : elle route
+/// vers les services en mémoire et tient le journal d'audit (US-18).
 /// Démarrée une fois pour toute la campagne : chaque scénario crée ses propres utilisateurs et produits.
 /// </summary>
 public sealed class Platform : IAsyncDisposable
@@ -46,6 +52,10 @@ public sealed class Platform : IAsyncDisposable
     internal Host<inventory::Program> Inventory { get; private set; } = null!;
     internal Host<payment::Program> Payment { get; private set; } = null!;
     internal Host<notification::Program> Notification { get; private set; } = null!;
+    internal Host<gateway::Program> Gateway { get; private set; } = null!;
+
+    /// <summary>Utilisateurs à qui Catalog a fait attribuer le rôle VENDOR (à la place de l'API d'administration Keycloak).</summary>
+    public ConcurrentBag<string> GrantedVendors { get; } = [];
 
     public static async Task<Platform> StartAsync()
     {
@@ -63,7 +73,10 @@ public sealed class Platform : IAsyncDisposable
         Catalog = Track(new Host<catalog::Program>(this, s =>
         {
             s["ConnectionStrings:CatalogDb"] = _postgres.ConnectionString;
-        }));
+        })
+        {
+            ExtraServices = services => services.AddSingleton<IVendorRoleGranter>(new RecordingRoleGranter(GrantedVendors)),
+        });
         Cart = Track(new Host<cart::Program>(this, s => s["ConnectionStrings:Redis"] = _redis.ConnectionString));
         Inventory = Track(new Host<inventory::Program>(this, async s => s["ConnectionStrings:InventoryDb"] = await _postgres.CreateDatabaseAsync("inventory")));
         _paymentDb = await _postgres.CreateDatabaseAsync("payment");
@@ -77,8 +90,22 @@ public sealed class Platform : IAsyncDisposable
             s["ServiceAccount:ClientSecret"] = "acceptance-secret";
         }, routeToCatalog: true));
 
+        Gateway = Track(new Host<gateway::Program>(this, s =>
+        {
+            foreach (var cluster in GatewayRouter.Clusters)
+            {
+                s[$"ReverseProxy:Clusters:{cluster}:Destinations:d1:Address"] = $"http://{cluster}.gateway/";
+            }
+
+            s["RateLimiting:PermitsPerSecond"] = "1000";
+            s["RateLimiting:Burst"] = "1000";
+        })
+        {
+            ExtraServices = services => services.AddSingleton<IForwarderHttpClientFactory>(new GatewayRouter(this)),
+        });
+
         // Le premier client démarre chaque hôte (migrations, consommateurs, publieur d'outbox).
-        foreach (var host in new IHost[] { Catalog, Cart, Inventory, Payment, Notification, Ordering })
+        foreach (var host in new IHost[] { Catalog, Cart, Inventory, Payment, Notification, Ordering, Gateway })
         {
             await host.StartAsync();
         }
@@ -158,6 +185,9 @@ public sealed class Platform : IAsyncDisposable
             using var _ = CreateClient();
         }
 
+        /// <summary>Services supplémentaires propres à cet hôte (remplacements de dépendances externes).</summary>
+        public Action<IServiceCollection>? ExtraServices { get; init; }
+
         public HttpClient As(string userId, params string[] roles) => CreateClient().WithToken(TestJwt.Token(userId, roles));
 
         public HttpClient Anonymous() => CreateClient();
@@ -175,6 +205,7 @@ public sealed class Platform : IAsyncDisposable
                 services.UseTestJwt();
                 services.RemoveAll<InMemoryBroker>();
                 services.AddSingleton(platform.Broker);   // un seul broker pour tous les services
+                ExtraServices?.Invoke(services);
                 if (routeToCatalog)
                 {
                     // Les appels sortants d'Ordering vers Catalog (et vers le « Keycloak » qui délivre son jeton de service)
@@ -200,6 +231,42 @@ public sealed class Platform : IAsyncDisposable
             }
 
             return await base.SendAsync(request, cancellationToken);
+        }
+    }
+
+    /// <summary>US-16 : remplace l'API d'administration Keycloak ; on vérifie seulement à qui le rôle a été attribué.</summary>
+    private sealed class RecordingRoleGranter(ConcurrentBag<string> granted) : IVendorRoleGranter
+    {
+        public Task GrantVendorRoleAsync(string userId, CancellationToken ct)
+        {
+            granted.Add(userId);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>Le « réseau » de la passerelle : chaque cluster YARP est relié au service hébergé en mémoire.</summary>
+    private sealed class GatewayRouter(Platform platform) : IForwarderHttpClientFactory
+    {
+        public static readonly string[] Clusters = ["catalog", "inventory", "cart", "ordering", "payment", "notification"];
+
+        public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context) => new(new Router(platform), disposeHandler: true);
+
+        private sealed class Router(Platform platform) : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                HttpMessageHandler target = request.RequestUri!.Host switch
+                {
+                    "catalog.gateway" => platform.Catalog.Server.CreateHandler(),
+                    "inventory.gateway" => platform.Inventory.Server.CreateHandler(),
+                    "cart.gateway" => platform.Cart.Server.CreateHandler(),
+                    "ordering.gateway" => platform.Ordering.Server.CreateHandler(),
+                    "payment.gateway" => platform.Payment.Server.CreateHandler(),
+                    "notification.gateway" => platform.Notification.Server.CreateHandler(),
+                    var host => throw new InvalidOperationException($"Destination inconnue : {host}"),
+                };
+                return new HttpMessageInvoker(target).SendAsync(request, cancellationToken);
+            }
         }
     }
 }

@@ -98,3 +98,13 @@ public sealed class PlaceOrderRequestValidator : AbstractValidator<PlaceOrderReq
 
 public sealed record OrderPage(
     IReadOnlyList<OrderResponse> Content, int Page, int Size, long TotalElements, int TotalPages);
+
+/// <summary>US-17 : tableau de bord du vendeur (ventes du jour, commandes à préparer). Les ruptures viennent d'Inventory.</summary>
+public sealed record VendorDashboardResponse(
+    DateOnly Day,
+    int OrdersToday,
+    int UnitsSoldToday,
+    MoneyDto SalesToday,
+    int AwaitingPaymentToday,
+    int ToPrepareCount,
+    IReadOnlyList<VendorOrderResponse> ToPrepare);

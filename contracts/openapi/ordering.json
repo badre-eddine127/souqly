@@ -58,6 +58,26 @@
                 }
             }
         },
+        "/api/v1/vendor/dashboard": {
+            "get": {
+                "tags": [
+                    "Espace vendeur"
+                ],
+                "summary": "Tableau de bord : ventes du jour, commandes \u00e0 pr\u00e9parer (US-17)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VendorDashboardResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/orders": {
             "post": {
                 "tags": [
@@ -645,6 +665,65 @@
                             "string"
                         ],
                         "format": "date-time"
+                    }
+                }
+            },
+            "VendorDashboardResponse": {
+                "required": [
+                    "day",
+                    "ordersToday",
+                    "unitsSoldToday",
+                    "salesToday",
+                    "awaitingPaymentToday",
+                    "toPrepareCount",
+                    "toPrepare"
+                ],
+                "type": "object",
+                "properties": {
+                    "day": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "ordersToday": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "unitsSoldToday": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "salesToday": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "awaitingPaymentToday": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "toPrepareCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "toPrepare": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VendorOrderResponse"
+                        }
                     }
                 }
             },

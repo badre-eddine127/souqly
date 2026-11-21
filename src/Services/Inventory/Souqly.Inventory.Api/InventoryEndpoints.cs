@@ -34,6 +34,12 @@ internal static class InventoryEndpoints
             .RequireAuthorization(Policies.Vendor)
             .Validate<AdjustStockRequest>();
 
+        app.MapGet("/api/v1/vendor/stock-alerts", async (int? threshold, HttpContext http, StockService service, CancellationToken ct) =>
+                TypedResults.Ok(await service.AlertsAsync(http.CurrentUser(), threshold, ct)))
+            .WithTags("Espace vendeur")
+            .WithSummary("Ruptures et stocks bas de mes produits (US-17)")
+            .RequireAuthorization(Policies.Vendor);
+
         // Interne : commandes de la saga (passeront par Kafka au sprint 3). Jamais routé par la passerelle.
         var reservations = app.MapGroup("/internal/v1/reservations").WithTags("Interne").RequireAuthorization(Policies.Internal);
 

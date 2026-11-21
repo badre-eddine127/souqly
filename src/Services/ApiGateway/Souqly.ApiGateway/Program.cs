@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Scalar.AspNetCore;
+using Souqly.ApiGateway;
 using Souqly.Chassis;
 using Souqly.Chassis.Errors;
 using Souqly.Chassis.Security;
@@ -12,7 +13,9 @@ if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 var builder = WebApplication.CreateBuilder(args);
 builder.AddSouqlyTelemetry();
 builder.Services.AddSouqlyJwt(builder.Configuration, builder.Environment);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(Policies.Admin, p => p.RequireRole(Roles.Admin));
+builder.Services.AddSouqlyAudit(builder.Configuration);
 var auth = builder.Configuration.GetSection("Authentication").Get<SouqlyAuthOptions>() ?? new SouqlyAuthOptions();
 
 // Passerelle : point d'entrée unique. Elle route, limite le débit et ajoute les en-têtes de sécurité.
@@ -82,6 +85,7 @@ app.Use(async (context, next) =>
 });
 app.UseCors();
 app.UseAuthentication();
+app.UseMiddleware<AuditMiddleware>();   // US-18 : après l'authentification (qui), avant l'autorisation (les refus 403 sont tracés)
 app.UseAuthorization();
 app.UseRateLimiter();
 
@@ -108,6 +112,7 @@ app.MapScalarApiReference(o =>
      });
 }).DisableRateLimiting();
 
+app.MapAuditEndpoints();
 app.MapReverseProxy();
 
 await app.RunAsync();

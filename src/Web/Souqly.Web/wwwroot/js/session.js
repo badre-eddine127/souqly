@@ -15,7 +15,10 @@ export const session = {
   async load() {
     const { data } = await get("/session/user");
     this.user = data ?? this.user;
-    this.vendors = (await get("/session/vendors")).data ?? {};
+    // Annuaire des ateliers : démonstration (serveur web) + boutiques validées par l'équipe Souqly (US-16).
+    const [directory, shops] = await Promise.all([get("/session/vendors"), get("/api/v1/vendors/shops")]);
+    this.vendors = { ...(directory.data ?? {}) };
+    for (const shop of shops.data ?? []) this.vendors[shop.vendorId] = { name: shop.shopName, city: shop.city };
     await Promise.all([this.refreshCart(), this.refreshNotifications()]);
   },
 

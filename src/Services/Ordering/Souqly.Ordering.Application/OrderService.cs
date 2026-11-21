@@ -122,14 +122,36 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
     {
         var request = PageRequest.Of(page, size);
         var (items, total) = await orders.ListForVendorAsync(vendor.Id, status, request.Skip, request.Size, ct);
-        var views = items.Select(o =>
-        {
-            var lines = o.LinesOf(vendor.Id).OrderBy(l => l.ProductId).ToList();
-            var shipment = o.Shipments.FirstOrDefault(sh => sh.VendorId == vendor.Id);
-            return new VendorOrderResponse(o.Id, OrderResponse.StatusName(o.Status), lines.Select(OrderLineResponse.From).ToList(),
-                MoneyDto.Of(lines.Sum(l => l.LineTotal)), o.CreatedAt, shipment is null ? null : ShipmentResponse.From(shipment));
-        }).ToList();
+        var views = items.Select(o => ToVendorView(o, vendor.Id)).ToList();
         return PageResponse<VendorOrderResponse>.From(views, request, total);
+    }
+
+    /// <summary>
+    /// US-17 : ventes du jour (commandes payées : CONFIRMED, SHIPPED ou DELIVERED, sur ses seules lignes) et commandes
+    /// à préparer (CONFIRMED sans colis expédié par ce vendeur). Le « jour » est celui du Maroc.
+    /// </summary>
+    public async Task<VendorDashboardResponse> DashboardAsync(CurrentUser vendor, CancellationToken ct)
+    {
+        var now = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), MoroccoTime.Zone);
+        var startOfDay = new DateTimeOffset(now.Date, now.Offset);
+        var recent = await orders.ListForVendorDashboardAsync(vendor.Id, startOfDay, ct);
+
+        var today = recent.Where(o => o.CreatedAt >= startOfDay).ToList();
+        var paidToday = today.Where(o => o.Status is OrderStatus.Confirmed or OrderStatus.Shipped or OrderStatus.Delivered).ToList();
+        var paidLines = paidToday.SelectMany(o => o.LinesOf(vendor.Id)).ToList();
+        var toPrepare = recent
+            .Where(o => o.Status == OrderStatus.Confirmed && o.Shipments.All(sh => sh.VendorId != vendor.Id))
+            .OrderBy(o => o.CreatedAt)
+            .ToList();
+
+        return new VendorDashboardResponse(
+            DateOnly.FromDateTime(now.Date),
+            paidToday.Count,
+            paidLines.Sum(l => l.Quantity),
+            MoneyDto.Of(paidLines.Sum(l => l.LineTotal)),
+            today.Count(o => o.Status is OrderStatus.Pending or OrderStatus.StockReserved),
+            toPrepare.Count,
+            toPrepare.Take(5).Select(o => ToVendorView(o, vendor.Id)).ToList());
     }
 
     /// <summary>US-13 : le vendeur expédie son colis ; la commande passe à SHIPPED quand tous les colis sont partis.</summary>
@@ -238,5 +260,24 @@ public sealed class OrderService(IOrderRepository orders, ICatalogPort catalog, 
     {
         var canonical = string.Join(';', request.Lines.OrderBy(l => l.ProductId).ThenBy(l => l.Quantity).Select(l => $"{l.ProductId}x{l.Quantity}"));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+}
+
+/// <summary>Fuseau du Maroc (UTC+1, UTC+0 pendant le ramadan), avec repli sur UTC+1 si la base des fuseaux est absente.</summary>
+internal static class MoroccoTime
+{
+    public static readonly TimeZoneInfo Zone = Find();
+
+    private static TimeZoneInfo Find()
+    {
+        foreach (var id in new[] { "Africa/Casablanca", "Morocco Standard Time" })
+        {
+            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone))
+            {
+                return zone;
+            }
+        }
+
+        return TimeZoneInfo.CreateCustomTimeZone("Morocco", TimeSpan.FromHours(1), "Maroc", "Maroc");
     }
 }

@@ -120,3 +120,11 @@ public sealed record StockView(long ProductId, string VendorId, int OnHand, int 
 public sealed record PaymentView(Guid Id, Guid OrderId, string Status, string Amount, string Currency);
 
 public sealed record NotificationView(Guid Id, string Kind, Guid OrderId, string Title, string Body, bool Read);
+
+public sealed record ApplicationView(long Id, string UserId, string ShopName, string City, string Status, string? RejectionReason);
+
+public sealed record ShopView(string VendorId, string ShopName, string City);
+
+public sealed record DashboardView(int OrdersToday, int UnitsSoldToday, MoneyView SalesToday, int AwaitingPaymentToday, int ToPrepareCount);
+
+public sealed record AuditView(DateTimeOffset At, string UserId, string? Username, IReadOnlyList<string> Roles, string Method, string Path, int Status);
