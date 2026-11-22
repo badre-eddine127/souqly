@@ -20,7 +20,7 @@ export async function productPage(app, [id]) {
   const vendor = session.vendor(product.vendorId);
   const max = Math.min(10, available);
   const vendorOnly = session.is("VENDOR") && !session.is("CUSTOMER");
-  const statusTag = product.status === "PUBLISHED" ? "" : `<span class="status status-wait">${product.status === "DRAFT" ? "Brouillon" : "Archivé"}</span>`;
+  const statusTag = product.status === "ACTIVE" ? "" : `<span class="status status-wait">${product.status === "DRAFT" ? "Brouillon" : "Archivé"}</span>`;
 
   app.innerHTML = `
     <a href="/" data-link class="back">← Retour au souk</a>
@@ -72,7 +72,7 @@ export async function productPage(app, [id]) {
                   ${Array.from({ length: Math.max(1, max) }, (_, i) => `<option>${i + 1}</option>`).join("")}
                 </select>
               </label>
-              <button class="btn btn-clay btn-lg" id="add" ${available === 0 || product.status !== "PUBLISHED" ? "disabled" : ""}>
+              <button class="btn btn-clay btn-lg" id="add" ${available === 0 || product.status !== "ACTIVE" ? "disabled" : ""}>
                 ${session.user.authenticated ? "Ajouter au panier" : "Se connecter pour acheter"}
               </button>
             </div>`}

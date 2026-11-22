@@ -21,7 +21,7 @@ export async function cartPage(app) {
       items.map(async (i) => ({ productId: Number(i.productId), quantity: Number(i.quantity), product: (await get(`/api/v1/products/${i.productId}`)).data })),
     );
     const total = lines.reduce((sum, l) => sum + Number(l.product?.price.amount ?? 0) * l.quantity, 0);
-    const unavailable = lines.some((l) => !l.product || l.product.status !== "PUBLISHED");
+    const unavailable = lines.some((l) => !l.product || l.product.status !== "ACTIVE");
 
     app.innerHTML = `
       <h1>Mon panier</h1>

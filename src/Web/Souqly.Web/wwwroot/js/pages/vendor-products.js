@@ -2,7 +2,7 @@ import { api, get, problemMessage } from "../api.js";
 import { esc, formatMoney } from "../format.js";
 import { modal, productVisual, toast } from "../ui.js";
 
-const STATUS_LABELS = { PUBLISHED: ["Publié", "ok"], DRAFT: ["Brouillon", "wait"], ARCHIVED: ["Archivé", "ko"] };
+const STATUS_LABELS = { ACTIVE: ["En vente", "ok"], DRAFT: ["Brouillon", "wait"], ARCHIVED: ["Archivé", "ko"] };
 
 /** US-03 (mes produits : créer, modifier, archiver) et US-10 (déclarer et ajuster mon stock). */
 export async function vendorProductsPage(app) {
@@ -54,7 +54,7 @@ export async function vendorProductsPage(app) {
     app.querySelectorAll("[data-edit]").forEach((b) =>
       b.addEventListener("click", () => {
         const p = byId(b.dataset.edit);
-        productForm({ id: p.id, categoryId: p.categoryId, sku: p.sku, name: p.name, description: p.description, price: p.price.amount, publish: p.status === "PUBLISHED" });
+        productForm({ id: p.id, categoryId: p.categoryId, sku: p.sku, name: p.name, description: p.description, price: p.price.amount, publish: p.status === "ACTIVE" });
       }),
     );
     app.querySelectorAll("[data-archive]").forEach((b) =>

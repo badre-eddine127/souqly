@@ -121,6 +121,36 @@ public class WebTests(WebFactory factory) : IClassFixture<WebFactory>
         (await Client().GetStringAsync("/admin/journal")).ShouldContain("/js/app.js");
     }
 
+    /// <summary>
+    /// Régression : le site comparait le statut à « PUBLISHED », que Catalog ne renvoie jamais (DRAFT, ACTIVE, ARCHIVED) :
+    /// le panier refusait toute commande et la fiche affichait « Archivé ».
+    /// </summary>
+    [Fact]
+    public void Le_site_n_utilise_que_les_statuts_produit_de_Catalog()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "wwwroot", "js");
+        var scripts = Directory.Exists(root)
+            ? Directory.GetFiles(root, "*.js", SearchOption.AllDirectories)
+            : Directory.GetFiles(Path.Combine(RepoRoot(), "src", "Web", "Souqly.Web", "wwwroot", "js"), "*.js", SearchOption.AllDirectories);
+
+        scripts.ShouldNotBeEmpty();
+        foreach (var script in scripts)
+        {
+            File.ReadAllText(script).ShouldNotContain("\"PUBLISHED\"", customMessage: script);
+        }
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Souqly.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName ?? throw new InvalidOperationException("Racine du dépôt introuvable.");
+    }
+
     [Fact]
     public async Task Le_rapport_Gherkin_exige_une_session_administrateur()
     {
