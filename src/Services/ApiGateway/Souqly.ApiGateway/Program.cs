@@ -16,6 +16,7 @@ builder.Services.AddSouqlyJwt(builder.Configuration, builder.Environment);
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Admin, p => p.RequireRole(Roles.Admin));
 builder.Services.AddSouqlyAudit(builder.Configuration);
+builder.Services.AddSouqlyJourneys(builder.Configuration);
 var auth = builder.Configuration.GetSection("Authentication").Get<SouqlyAuthOptions>() ?? new SouqlyAuthOptions();
 
 // Passerelle : point d'entrée unique. Elle route, limite le débit et ajoute les en-têtes de sécurité.
@@ -85,7 +86,8 @@ app.Use(async (context, next) =>
 });
 app.UseCors();
 app.UseAuthentication();
-app.UseMiddleware<AuditMiddleware>();   // US-18 : après l'authentification (qui), avant l'autorisation (les refus 403 sont tracés)
+app.UseMiddleware<AuditMiddleware>();     // US-18 : après l'authentification (qui), avant l'autorisation (les refus 403 sont tracés)
+app.UseMiddleware<JourneyMiddleware>();   // parcours réels écrits en Gherkin, avec OK/KO (page admin)
 app.UseAuthorization();
 app.UseRateLimiter();
 
@@ -113,6 +115,7 @@ app.MapScalarApiReference(o =>
 }).DisableRateLimiting();
 
 app.MapAuditEndpoints();
+app.MapJourneyEndpoints();
 app.MapReverseProxy();
 
 await app.RunAsync();

@@ -53,6 +53,45 @@ public static class SessionEndpoints
                 http.User.FindFirst("given_name")?.Value ?? http.User.FindFirst("name")?.Value,
                 RealmRoles(token)));
         });
+
+        // Page admin « Gherkin » : rapport de la dernière exécution des tests d'acceptation (scénarios et étapes, OK/KO).
+        session.MapGet("/gherkin-report", async (HttpContext http, IConfiguration configuration, IWebHostEnvironment environment) =>
+        {
+            if (http.User.Identity?.IsAuthenticated != true)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (!RealmRoles(await http.GetTokenAsync("access_token")).Contains("ADMIN"))
+            {
+                return Results.Problem(statusCode: 403, title: "Accès réservé aux administrateurs");
+            }
+
+            var path = GherkinReportPath(configuration, environment.ContentRootPath);
+            return path is not null && File.Exists(path)
+                ? Results.File(path, "application/json")
+                : Results.Problem(statusCode: 404, title: "Pas encore de rapport",
+                    detail: "Lancez les tests d'acceptation (dotnet test tests/Acceptance.Tests ou l'Explorateur de tests) : ils écrivent artifacts/gherkin-report.json.");
+        });
+    }
+
+    /// <summary>GherkinReport:Path, sinon artifacts/gherkin-report.json à la racine du dépôt (dossier qui contient Souqly.slnx).</summary>
+    internal static string? GherkinReportPath(IConfiguration configuration, string contentRoot)
+    {
+        if (configuration["GherkinReport:Path"] is { Length: > 0 } configured)
+        {
+            return configured;
+        }
+
+        for (var dir = new DirectoryInfo(contentRoot); dir is not null; dir = dir.Parent)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "Souqly.slnx")))
+            {
+                return Path.Combine(dir.FullName, "artifacts", "gherkin-report.json");
+            }
+        }
+
+        return null;
     }
 
     /// <summary>N'accepte qu'un chemin local : pas de redirection ouverte vers un autre site.</summary>

@@ -70,6 +70,7 @@ Projet ASP.NET Core `src/Web/Souqly.Web` : les pages sont du **HTML, CSS et Java
 | Alerte de stock bas (seuil réglable par produit) et de rupture, dans les notifications | vendeur | US-12 |
 | Tableau de bord : ventes du jour, commandes à préparer, ruptures et stocks bas | vendeur | US-17 |
 | Demandes de boutique (valider, refuser avec motif), journal d'audit | administrateur | US-16, US-18 |
+| Gherkin : parcours réels des utilisateurs écrits en Gherkin (OK/KO par action) et rapport de recette (chaque scénario OK/KO) | administrateur | — |
 
 - **Connexion Keycloak côté serveur** (Authorization Code + PKCE, client `souqly-web`) : les jetons restent dans le cookie de session chiffré (`HttpOnly`), **le JavaScript ne voit jamais de jeton** (modèle *Backend for Frontend*).
 - Le JavaScript appelle `/api/...` sur le même site ; ASP.NET Core ajoute le jeton (renouvelé automatiquement) et relaie vers la passerelle (YARP).
@@ -132,7 +133,7 @@ Les tests d'intégration utilisent PostgreSQL via Testcontainers (Docker requis)
 
 ### Tests d'acceptation (Gherkin)
 
-Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les services réels démarrés en mémoire (passerelle, Catalog, Cart, Ordering, Inventory, Payment, Notification ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`.
+Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les services réels démarrés en mémoire (passerelle, Catalog, Cart, Ordering, Inventory, Payment, Notification, Search ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`. Chaque exécution écrit `artifacts/gherkin-report.json` (scénarios, étapes, OK/KO), affiché dans la page admin **Gherkin › Recette** du site et conservé comme artefact `gherkin-report` de la CI. L'onglet **Parcours en direct** de la même page montre les actions réelles des utilisateurs, traduites en Gherkin par la passerelle.
 
 ## Structure
 

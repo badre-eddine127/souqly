@@ -369,6 +369,31 @@ main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 24
 .facets .chip.active b { color: inherit; }
 .alert-info { background: #eef2e6; color: var(--green); }
 
+/* Page admin Gherkin : parcours réels et recette, OK/KO. */
+.gherkin { padding: 16px 20px; border-left: 4px solid var(--ok); }
+.gherkin.failed { border-left-color: var(--ko); }
+.gherkin header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.gk-kw { font-weight: 800; color: var(--clay-dark); }
+.gk-ok { color: var(--ok); font-weight: 800; white-space: nowrap; }
+.gk-ko { color: var(--ko); font-weight: 800; white-space: nowrap; }
+.gk-lines { list-style: none; margin: 6px 0 0; padding: 10px 14px; border-radius: 12px; background: #fbf6ec; font: 13.5px/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.gk-lines li { display: flex; gap: 8px; align-items: baseline; }
+.gk-lines li > .gk-kw { min-width: 118px; text-align: right; }
+.gk-lines li.then-ok { color: var(--ok); }
+.gk-lines li.then-ko { color: var(--ko); background: #f8e4dc; border-radius: 6px; }
+.gk-at { margin-left: auto; color: var(--muted); font-size: 11px; }
+.gk-summary { text-align: right; font-size: 13px; }
+.gk-error { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: #f8e4dc; color: var(--ko); font: 12px/1.5 ui-monospace, monospace; }
+.gherkin details { border-top: 1px solid var(--line); padding: 8px 0; }
+.gherkin summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.gk-report-head { display: flex; align-items: center; gap: 18px; padding: 14px 18px; margin-bottom: 14px; flex-wrap: wrap; }
+.kpi-mini { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+.kpi-mini strong { font: 700 26px var(--serif); }
+.kpi-mini span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.kpi-mini.ok strong { color: var(--ok); }
+.kpi-mini.ko strong { color: var(--ko); }
+label.check { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
 /* Espace vendeur et administration (US-16, US-17, US-18) */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
 .page-head p { margin: 0; max-width: 680px; }

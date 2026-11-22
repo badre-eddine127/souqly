@@ -23,6 +23,7 @@ public sealed class FakeCatalog : IAsyncLifetime
         _app.MapGet("/api/v1/products", () => Results.Text("catalog:products"));
         _app.MapPost("/api/v1/products", () => Results.Text("catalog:created"));
         _app.MapPost("/api/v1/vendors/{id}/approval", () => Results.StatusCode(403));   // le service refuse un non-administrateur
+        _app.MapPut("/api/v1/products/{id}", async (HttpRequest request) => Results.Text(await new StreamReader(request.Body).ReadToEndAsync()));   // renvoie le corps reçu
         _app.MapGet("/internal/v1/products/prices", () => Results.Text("SECRET"));
         await _app.StartAsync();
         Address = _app.Urls.First();

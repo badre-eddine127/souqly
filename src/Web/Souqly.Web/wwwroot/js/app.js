@@ -13,6 +13,7 @@ import { vendorDashboardPage } from "./pages/vendor-dashboard.js";
 import { becomeVendorPage } from "./pages/become-vendor.js";
 import { adminVendorsPage } from "./pages/admin-vendors.js";
 import { adminAuditPage } from "./pages/admin-audit.js";
+import { adminGherkinPage } from "./pages/admin-gherkin.js";
 
 // Routes du site (navigation sans rechargement grâce à l'API History).
 const routes = [
@@ -28,6 +29,7 @@ const routes = [
   { path: /^\/vendeur\/commandes$/, page: vendorOrdersPage, role: "VENDOR" },
   { path: /^\/admin\/vendeurs$/, page: adminVendorsPage, role: "ADMIN" },
   { path: /^\/admin\/journal$/, page: adminAuditPage, role: "ADMIN" },
+  { path: /^\/admin\/gherkin$/, page: adminGherkinPage, role: "ADMIN" },
 ];
 
 const app = document.getElementById("app");
@@ -89,7 +91,7 @@ function renderNav() {
   let nav = link("/", "Catalogue");
   if (session.is("CUSTOMER")) nav += link("/commandes", "Mes commandes");
   if (session.is("VENDOR")) nav += link("/vendeur/tableau-de-bord", "Tableau de bord") + link("/vendeur/produits", "Mes produits") + link("/vendeur/commandes", "Commandes");
-  if (session.is("ADMIN")) nav += link("/admin/vendeurs", "Boutiques") + link("/admin/journal", "Journal d'audit");
+  if (session.is("ADMIN")) nav += link("/admin/vendeurs", "Boutiques") + link("/admin/journal", "Journal d'audit") + link("/admin/gherkin", "Gherkin");
   if (!session.is("VENDOR") && !session.is("ADMIN")) nav += link("/vendre", "Vendre sur Souqly");
   document.getElementById("nav").innerHTML = nav;
 
@@ -114,7 +116,7 @@ function renderNav() {
            <div class="dropdown-head"><strong>${esc(name)}</strong><span>${esc(u.username ?? "")} · ${esc(roles)}</span></div>
            ${session.is("CUSTOMER") ? menuItem("/commandes", "box", "Mes commandes") + menuItem("/panier", "bag", "Mon panier") : ""}
            ${session.is("VENDOR") ? menuItem("/vendeur/tableau-de-bord", "chart", "Tableau de bord") + menuItem("/vendeur/produits", "store", "Mes produits") + menuItem("/vendeur/commandes", "truck", "Commandes à préparer") : ""}
-           ${session.is("ADMIN") ? menuItem("/admin/vendeurs", "shield", "Demandes de boutique") + menuItem("/admin/journal", "list", "Journal d'audit") : ""}
+           ${session.is("ADMIN") ? menuItem("/admin/vendeurs", "shield", "Demandes de boutique") + menuItem("/admin/journal", "list", "Journal d'audit") + menuItem("/admin/gherkin", "chart", "Gherkin (parcours et recette)") : ""}
            ${!session.is("VENDOR") && !session.is("ADMIN") ? menuItem("/vendre", "store", "Ouvrir ma boutique") : ""}
            ${menuItem("/notifications", "bell", "Notifications")}
            <button class="logout" data-action="logout" role="menuitem">${icon("logout")}Se déconnecter</button>

@@ -122,6 +122,13 @@ public class WebTests(WebFactory factory) : IClassFixture<WebFactory>
     }
 
     [Fact]
+    public async Task Le_rapport_Gherkin_exige_une_session_administrateur()
+    {
+        (await Client().GetAsync("/session/gherkin-report")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await Client().GetAsync("/js/pages/admin-gherkin.js")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Le_renouvellement_des_roles_exige_une_session()
     {
         (await Client().PostAsync("/session/refresh", null)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
