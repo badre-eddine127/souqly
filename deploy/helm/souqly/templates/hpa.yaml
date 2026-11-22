@@ -1,0 +1,42 @@
+{{- $root := . -}}
+{{- range $name, $svc := .Values.services }}
+{{- $cfg := include "souqly.serviceConfig" (dict "root" $root "svc" $svc) | fromYaml }}
+{{- if $cfg.autoscaling.enabled }}
+---
+# Ajoute des pods quand la moyenne CPU dépasse la cible ; descend lentement pour ne pas osciller.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "souqly.labels" $root | nindent 4 }}
+    {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  minReplicas: {{ $cfg.autoscaling.minReplicas }}
+  maxReplicas: {{ $cfg.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $cfg.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+{{- end }}
+{{- end }}

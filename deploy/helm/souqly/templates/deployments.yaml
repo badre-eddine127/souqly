@@ -1,0 +1,123 @@
+{{- $root := . -}}
+{{- range $name, $svc := .Values.services }}
+{{- $cfg := include "souqly.serviceConfig" (dict "root" $root "svc" $svc) | fromYaml }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "souqly.labels" $root | nindent 4 }}
+    {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 4 }}
+spec:
+  {{- if not $cfg.autoscaling.enabled }}
+  replicas: {{ $cfg.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "souqly.labels" $root | nindent 8 }}
+        {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 8 }}
+      annotations:
+        # Un changement du Secret créé par le chart redémarre les pods.
+        checksum/secret: {{ toJson $root.Values.secrets | sha256sum | trunc 16 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $root.Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 14 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "souqly.image" (dict "root" $root "name" $name) }}
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # Secrets d'abord : les valeurs suivantes peuvent les citer avec $(NOM).
+            {{- range $envName, $key := $cfg.secretEnv }}
+            - name: {{ $envName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $root.Values.secrets.name }}
+                  key: {{ $key }}
+            {{- end }}
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ $root.Values.environment | quote }}
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8080"
+            # L'ingress termine TLS : les en-têtes X-Forwarded-* donnent le schéma et l'hôte d'origine.
+            - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+              value: "true"
+            - name: Authentication__Authority
+              value: {{ $root.Values.keycloak.authority | quote }}
+            {{- with $root.Values.keycloak.metadataAddress }}
+            - name: Authentication__MetadataAddress
+              value: {{ . | quote }}
+            - name: Oidc__MetadataAddress
+              value: {{ . | quote }}
+            {{- end }}
+            - name: ConnectionStrings__Kafka
+              value: {{ $root.Values.kafka.bootstrapServers | quote }}
+            - name: Database__MigrateOnStartup
+              value: "true"
+            {{- with $root.Values.telemetry.otlpEndpoint }}
+            - name: Telemetry__GrafanaEndpoint
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if $cfg.rateLimit }}
+            - name: RateLimiting__PermitsPerSecond
+              value: {{ $cfg.rateLimit.permitsPerSecond | quote }}
+            - name: RateLimiting__Burst
+              value: {{ $cfg.rateLimit.burst | quote }}
+            {{- end }}
+            {{- range $envName, $value := $cfg.env }}
+            - name: {{ $envName }}
+              value: {{ tpl $value $root | quote }}
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml $root.Values.securityContext | nindent 12 }}
+          volumeMounts:
+            # Système de fichiers en lecture seule : seul /tmp est inscriptible.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- end }}

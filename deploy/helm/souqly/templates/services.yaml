@@ -1,0 +1,20 @@
+{{- $root := . -}}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "souqly.labels" $root | nindent 4 }}
+    {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- end }}

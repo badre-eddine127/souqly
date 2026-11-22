@@ -53,6 +53,33 @@ jobs:
           path: artifacts/gherkin-report.json
           if-no-files-found: ignore
 
+  deploiement:
+    # Chart Helm valide (lint + schémas Kubernetes) et scripts k6 lisibles par k6.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Vérifier le chart Helm
+        run: |
+          helm lint deploy/helm/souqly --strict
+          helm lint deploy/helm/souqly --strict -f deploy/helm/souqly/values-demo.yaml
+
+      - name: Valider les manifestes (kubeconform)
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          helm template souqly deploy/helm/souqly | ./kubeconform -strict -summary -kubernetes-version 1.31.0
+          helm template souqly deploy/helm/souqly -f deploy/helm/souqly/values-demo.yaml | ./kubeconform -strict -summary -kubernetes-version 1.31.0
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Vérifier les scripts k6
+        run: |
+          for p in fumee charge pic; do k6 inspect -e PROFILE=$p tests/load/souqly.js > /dev/null && echo "k6 $p : OK"; done
+
   secrets:
     runs-on: ubuntu-latest
     steps:

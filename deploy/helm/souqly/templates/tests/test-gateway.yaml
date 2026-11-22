@@ -1,0 +1,30 @@
+# helm test <release> : la passerelle répond et voit des services prêts.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "souqly.fullname" . }}-test-gateway
+  labels:
+    {{- include "souqly.labels" . | nindent 4 }}
+    {{- include "souqly.selectorLabels" (dict "root" . "name" "test") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: { type: RuntimeDefault }
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: { drop: ["ALL"] }
+      command: ["sh", "-c"]
+      args:
+        - >-
+          curl -fsS http://{{ include "souqly.fullname" . }}-gateway/health/ready &&
+          curl -fsS -o /dev/null http://{{ include "souqly.fullname" . }}-gateway/api/v1/products?size=1

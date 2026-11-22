@@ -1,0 +1,59 @@
+# Démonstration sur un cluster local (kind, minikube, k3d, Docker Desktop) :
+#   helm upgrade --install souqly deploy/helm/souqly -n souqly --create-namespace -f deploy/helm/souqly/values-demo.yaml
+# Les dépendances (PostgreSQL, Redis, Kafka, Keycloak) sont installées à part : voir deploy/helm/README.md.
+# Mots de passe factices : ne jamais utiliser ce fichier en production.
+
+environment: Development        # Scalar visible, comme en local
+image:
+  tag: "1.0.0"
+
+ingress:
+  host: souqly.localhost
+  apiHost: api.souqly.localhost
+  tls:
+    enabled: false
+  annotations:
+    cert-manager.io/cluster-issuer: null     # pas de certificat en local (null retire la clé)
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: souqly-route
+
+keycloak:
+  authority: http://auth.souqly.localhost/realms/souqly
+  metadataAddress: http://keycloak.data.svc:8080/realms/souqly/.well-known/openid-configuration
+  internalBaseAddress: http://keycloak.data.svc:8080
+kafka:
+  bootstrapServers: kafka.data.svc:9092
+redis:
+  address: redis-master.data.svc:6379
+postgres:
+  host: postgres.data.svc
+telemetry:
+  otlpEndpoint: http://lgtm.observability.svc:4317
+
+secrets:
+  create: true
+  values:
+    CATALOG_DB_PASSWORD: change-me-catalog
+    INVENTORY_DB_PASSWORD: change-me-inventory
+    ORDERING_DB_PASSWORD: change-me-ordering
+    PAYMENT_DB_PASSWORD: change-me-payment
+    NOTIFICATION_DB_PASSWORD: change-me-notification
+    SEARCH_DB_PASSWORD: change-me-search
+    ORDERING_CLIENT_SECRET: change-me-ordering-secret-32-chars-min
+    CATALOG_CLIENT_SECRET: change-me-catalog-secret-32-chars-min
+
+# Un petit cluster : moins de répliques, HPA toujours actif pour la démonstration du pic.
+defaults:
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 4
+services:
+  gateway: { autoscaling: { minReplicas: 1, maxReplicas: 4 } }
+  catalog: { autoscaling: { minReplicas: 1, maxReplicas: 4 } }
+  cart: { autoscaling: { minReplicas: 1, maxReplicas: 3 } }
+  ordering: { autoscaling: { minReplicas: 1, maxReplicas: 3 } }
+  search: { autoscaling: { minReplicas: 1, maxReplicas: 3 } }

@@ -12,7 +12,7 @@ Navigateur / Scalar ──HTTPS(*)──▶ Passerelle YARP ──▶ Catalog / 
         └──── connexion OIDC + PKCE ──▶ Keycloak ◀── client credentials ── Ordering ──jeton SERVICE──▶ Catalog /internal
 ```
 
-(*) HTTP en local ; TLS terminé par l'ingress en déploiement (sprint 4).
+(*) HTTP en local ; en Kubernetes, TLS terminé par l'ingress (cert-manager) et `NetworkPolicy` entre services (sprint 5, [ADR-016](../adr/ADR-016-deploiement-kubernetes-helm.md)).
 
 Frontière 1 : Internet → passerelle (seul port publié). Frontière 2 : passerelle → services (réseau interne). Frontière 3 : services → bases (un compte SQL par service, sans droit sur les autres bases).
 
@@ -37,7 +37,7 @@ Frontière 1 : Internet → passerelle (seul port publié). Frontière 2 : passe
 | D2 | Déni de service | Catalog lent ou arrêté bloque toutes les commandes | Polly : délai 1,2 s par essai, 1 nouvel essai, budget total 2,8 s, disjoncteur → 503 + `Retry-After` | ✅ | `Catalogue_en_panne_…` et `Catalogue_trop_lent_…` : 503 en < 3 s |
 | D3 | Déni de service | Commandes énormes | RG-04 : 1 à 20 lignes, 1 à 10 unités, total ≤ 50 000 MAD ; pagination max 100 | ✅ | `Ordering.UnitTests` |
 | D4 | Déni de service | Double clic = double commande | En-tête `Idempotency-Key` obligatoire, clé unique (client, clé) en base | ✅ | `US09_dix_envois_simultanes_…` : 10 envois → 1 commande |
-| T5 | Falsification | Message Kafka forgé (faux PaymentSucceeded) | Kafka sur le réseau interne uniquement (aucun port publié en Compose) ; chaque étape revérifie l'état de la commande | 🟡 | ACL et SASL/mTLS sur Kafka ⏳ sprint 4 |
+| T5 | Falsification | Message Kafka forgé (faux PaymentSucceeded) | Kafka sur le réseau interne uniquement (aucun port publié en Compose) ; chaque étape revérifie l'état de la commande ; en Kubernetes, `NetworkPolicy` | 🟡 | ACL et SASL/mTLS sur Kafka ⏳ |
 | R2 | Répudiation | « Je n'ai jamais été débité » / « remboursé deux fois » | Un paiement par commande (index unique), remboursement idempotent, chaque message tracé (`message-id`, `traceparent`) | ✅ | `Livraison_en_double_…` ; `US08_annulation_…` |
 | D5 | Déni de service | Message illisible bloquant une partition | 3 essais puis DLQ, la file continue | ✅ | `Message_illisible_envoye_en_DLQ_…` |
 | D6 | Déni de service | Broker indisponible | Outbox : rien n'est perdu, envoi au retour ; les commandes restent acceptées (202) | ✅ | `Broker_en_panne_…` |
@@ -47,7 +47,7 @@ Frontière 1 : Internet → passerelle (seul port publié). Frontière 2 : passe
 
 ## Risques acceptés pour l'instant
 
-- HTTP sans TLS en local (TLS en déploiement, sprint 4).
+- HTTP sans TLS en local (TLS par l'ingress en Kubernetes).
 - Keycloak en mode `start-dev` avec base H2 intégrée (PostgreSQL dédié en déploiement).
 - Pas encore de journal d'audit séparé (sprint 4).
 - Kafka sans authentification (réseau interne) ; SASL/mTLS et ACL au sprint 4.

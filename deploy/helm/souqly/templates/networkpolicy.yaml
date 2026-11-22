@@ -1,0 +1,56 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . -}}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "souqly.labels" $root | nindent 4 }}
+    {{- include "souqly.instanceLabel" $root | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    {{- if $svc.public }}
+    # Service public : joignable depuis le contrôleur d'ingress.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $root.Values.networkPolicy.ingressControllerNamespace }}
+      ports:
+        - port: http
+    {{- end }}
+    {{- if eq $name "gateway" }}
+    # La passerelle est appelée par le site et par « helm test ».
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" "web") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" "test") | nindent 14 }}
+      ports:
+        - port: http
+    {{- else if not $svc.public }}
+    # Service métier : seulement la passerelle (et, pour Catalog, Ordering et Search : prix et réconciliation).
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" "gateway") | nindent 14 }}
+        {{- if eq $name "catalog" }}
+        - podSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" "ordering") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "souqly.selectorLabels" (dict "root" $root "name" "search") | nindent 14 }}
+        {{- end }}
+      ports:
+        - port: http
+    {{- end }}
+{{- end }}
+{{- end }}

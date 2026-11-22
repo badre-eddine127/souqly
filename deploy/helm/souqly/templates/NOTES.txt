@@ -1,0 +1,13 @@
+Souqly {{ .Chart.AppVersion }} est déployé dans l'espace de noms {{ .Release.Namespace }}.
+
+Site :  https://{{ .Values.ingress.host }}
+API  :  https://{{ .Values.ingress.apiHost }}
+
+Vérifier :
+  kubectl get pods,hpa -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- if not .Values.secrets.create }}
+
+Le Secret « {{ .Values.secrets.name }} » doit exister avant le démarrage des pods
+(clés : {{ keys .Values.secrets.values | sortAlpha | join ", " }}).
+{{- end }}

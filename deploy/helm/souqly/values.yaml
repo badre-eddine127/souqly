@@ -1,0 +1,171 @@
+# Valeurs par défaut du chart Souqly.
+# Les bases PostgreSQL, Redis, Kafka et Keycloak ne sont pas installées par ce chart :
+# ce sont des services gérés (ou leurs propres charts) dont on donne ici les adresses (ADR-016).
+
+image:
+  registry: ghcr.io/badre-eddine127   # images publiées par .github/workflows/release.yml
+  tag: ""                              # vide = appVersion du chart
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Environnement ASP.NET Core : Production désactive Scalar et les pages d'erreur détaillées.
+environment: Production
+
+# Adresses publiques (ingress, TLS terminé par le contrôleur d'ingress).
+ingress:
+  enabled: true
+  className: nginx
+  host: souqly.ma          # site web
+  apiHost: api.souqly.ma   # passerelle (API publique, Scalar désactivé en production)
+  tls:
+    enabled: true
+    secretName: souqly-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Les cookies de session du site sont chiffrés par pod : même pod pour un même navigateur.
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: souqly-route
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+
+# Dépendances externes.
+keycloak:
+  authority: https://auth.souqly.ma/realms/souqly   # émetteur des jetons (vu du navigateur)
+  metadataAddress: ""                                 # vide = <authority>/.well-known/openid-configuration
+  internalBaseAddress: https://auth.souqly.ma         # API d'administration (rôle VENDOR, US-16)
+kafka:
+  bootstrapServers: souqly-kafka-bootstrap.kafka.svc:9092
+redis:
+  address: souqly-redis-master.data.svc:6379
+postgres:
+  host: souqly-postgres.data.svc
+  port: 5432
+telemetry:
+  otlpEndpoint: ""        # ex. http://otel-collector.observability.svc:4317 ; vide = pas d'export
+
+# Secrets : en production, créer le Secret hors du chart (Sealed Secrets, External Secrets, Vault…)
+# et laisser create=false. create=true ne sert qu'à une démonstration.
+secrets:
+  create: false
+  name: souqly-secrets
+  # Clés attendues dans le Secret (valeurs utilisées seulement si create=true).
+  values:
+    CATALOG_DB_PASSWORD: ""
+    INVENTORY_DB_PASSWORD: ""
+    ORDERING_DB_PASSWORD: ""
+    PAYMENT_DB_PASSWORD: ""
+    NOTIFICATION_DB_PASSWORD: ""
+    SEARCH_DB_PASSWORD: ""
+    ORDERING_CLIENT_SECRET: ""
+    CATALOG_CLIENT_SECRET: ""
+
+# Valeurs communes à tous les services (surchargées service par service).
+defaults:
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 160Mi }
+    limits: { cpu: "1", memory: 384Mi }
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  # PodDisruptionBudget créé seulement pour un service à 2 pods ou plus.
+  pdb:
+    minAvailable: 1
+
+# Un bloc par microservice. Image : <registry>/souqly-<nom>:<tag>.
+# secretEnv : variable d'environnement ← clé du Secret ; env peut s'y référer avec $(NOM).
+services:
+  gateway:
+    public: true
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 6 }
+    rateLimit:
+      permitsPerSecond: 20   # par utilisateur ou adresse IP ; relever seulement pour un test de charge
+      burst: 40
+    env:
+      ConnectionStrings__Redis: "{{ .Values.redis.address }},abortConnect=false"
+      Cors__AllowedOrigins__0: "https://{{ .Values.ingress.host }}"
+      ReverseProxy__Clusters__catalog__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-catalog"
+      ReverseProxy__Clusters__inventory__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-inventory"
+      ReverseProxy__Clusters__cart__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-cart"
+      ReverseProxy__Clusters__ordering__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-ordering"
+      ReverseProxy__Clusters__payment__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-payment"
+      ReverseProxy__Clusters__notification__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-notification"
+      ReverseProxy__Clusters__search__Destinations__d1__Address: "http://{{ include \"souqly.fullname\" . }}-search"
+
+  web:
+    public: true
+    env:
+      Gateway__Address: "http://{{ include \"souqly.fullname\" . }}-gateway"
+      Oidc__Authority: "{{ .Values.keycloak.authority }}"
+
+  catalog:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 8 }
+    secretEnv:
+      CATALOG_DB_PASSWORD: CATALOG_DB_PASSWORD
+      KeycloakAdmin__ClientSecret: CATALOG_CLIENT_SECRET
+    env:
+      ConnectionStrings__CatalogDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=catalog_db;Username=catalog;Password=$(CATALOG_DB_PASSWORD)"
+      KeycloakAdmin__BaseAddress: "{{ .Values.keycloak.internalBaseAddress }}"
+
+  inventory:
+    secretEnv:
+      INVENTORY_DB_PASSWORD: INVENTORY_DB_PASSWORD
+    env:
+      ConnectionStrings__InventoryDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=inventory_db;Username=inventory;Password=$(INVENTORY_DB_PASSWORD)"
+
+  cart:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 6 }
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 256Mi }
+    env:
+      ConnectionStrings__Redis: "{{ .Values.redis.address }},abortConnect=false"
+
+  ordering:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 6 }
+    secretEnv:
+      ORDERING_DB_PASSWORD: ORDERING_DB_PASSWORD
+      ServiceAccount__ClientSecret: ORDERING_CLIENT_SECRET
+    env:
+      ConnectionStrings__OrderDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=ordering_db;Username=ordering;Password=$(ORDERING_DB_PASSWORD)"
+      Catalog__BaseAddress: "http://{{ include \"souqly.fullname\" . }}-catalog"
+      ServiceAccount__TokenEndpoint: "{{ .Values.keycloak.authority }}/protocol/openid-connect/token"
+
+  payment:
+    replicas: 1
+    secretEnv:
+      PAYMENT_DB_PASSWORD: PAYMENT_DB_PASSWORD
+    env:
+      ConnectionStrings__PaymentDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=payment_db;Username=payment;Password=$(PAYMENT_DB_PASSWORD)"
+
+  notification:
+    replicas: 1
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 256Mi }
+    secretEnv:
+      NOTIFICATION_DB_PASSWORD: NOTIFICATION_DB_PASSWORD
+    env:
+      ConnectionStrings__NotificationDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=notification_db;Username=notification;Password=$(NOTIFICATION_DB_PASSWORD)"
+
+  search:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 6 }
+    secretEnv:
+      SEARCH_DB_PASSWORD: SEARCH_DB_PASSWORD
+    env:
+      ConnectionStrings__SearchDb: "Host={{ .Values.postgres.host }};Port={{ .Values.postgres.port }};Database=search_db;Username=search;Password=$(SEARCH_DB_PASSWORD)"
+      Catalog__BaseAddress: "http://{{ include \"souqly.fullname\" . }}-catalog"
+
+# Réseau : seuls l'ingress (vers web et gateway) et la passerelle (vers les services) sont autorisés.
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: ingress-nginx
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: { type: RuntimeDefault }
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }

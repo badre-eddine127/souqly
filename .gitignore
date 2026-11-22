@@ -35,3 +35,6 @@ dump.rdb
 *.feature.cs
 # Cache de compilation TypeScript
 *.tsbuildinfo
+
+# Résumés des tests de charge k6
+k6-*-resume.json

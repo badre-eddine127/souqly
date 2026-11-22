@@ -27,7 +27,10 @@
   figcaption { font-size: 9pt; color: #57606a; margin-top: 3pt; text-align: center; }
   .task { page-break-before: always; }
   .badge { display: inline-block; background: #dafbe1; color: #1a7f37; border: 1px solid #a6e3b5; border-radius: 10pt; padding: 1pt 8pt; font-size: 9pt; font-weight: bold; }
-  .note { background: #fff8e5; border-left: 4px solid #d4a72c; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.5pt; }
+  .cover table.t { font-size: 8.5pt; margin: 3pt 0; }
+  .cover table.t td, .cover table.t th { padding: 2pt 5pt; }
+  .cover .band { padding: 18pt 22pt; }
+  .note { page-break-inside: avoid;  background: #fff8e5; border-left: 4px solid #d4a72c; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.5pt; }
   ul { margin: 3pt 0 7pt; padding-left: 16pt; }
   li { margin: 2pt 0; }
 </style>
@@ -45,7 +48,7 @@
     <tr><td>Enseignant</td><td>Pr Ihababdelbasset Annaki</td></tr>
     <tr><td>Étudiant</td><td>Badre</td></tr>
     <tr><td>Stack</td><td>.NET 10 LTS, ASP.NET Core, EF Core 10 (Npgsql), PostgreSQL 16 — accord de l'enseignant du 19/11/2026 (ADR-000)</td></tr>
-    <tr><td>Version du document</td><td>v2 · 20/11/2026</td></tr>
+    <tr><td>Version du document</td><td>v3 · 23/11/2026 (version finale 1.0.0)</td></tr>
   </table>
   <div>
     <h3>Synthèse</h3>
@@ -54,10 +57,19 @@
       <!--SUMMARY-->
       <tr><td>1. Socle du dépôt (structure, conventions, CI, ADR)</td><td>0</td><td class="ok">Terminée</td><td>Build 0 avertissement</td></tr>
       <tr><td>2. Service Catalog (US-01, US-02, US-03)</td><td>1</td><td class="ok">Terminée</td><td>49 tests verts</td></tr>
-      <tr><td>3. Service Inventory et vente flash (US-10, US-11, RG-01, RG-03)</td><td>1</td><td class="ok">Terminée</td><td>500 achats → 0 survente</td></tr>
+      <tr><td>3. Service Inventory et vente flash (US-10, US-11)</td><td>1</td><td class="ok">Terminée</td><td>500 achats → 0 survente</td></tr>
       <tr><td>4. Cart (Redis), passerelle YARP, Docker Compose (US-05)</td><td>1</td><td class="ok">Terminée</td><td>Parcours via :8080</td></tr>
-      <tr><td>5. Lancement par F5 dans Visual Studio (Aspire)</td><td>1</td><td class="ok">Terminée</td><td>8 ressources « Running » (vérifié sur PC)</td></tr>
-      <tr><td><b>Total</b></td><td></td><td></td><td><b>93 tests verts</b></td></tr>
+      <tr><td>5. Lancement par F5 dans Visual Studio (Aspire)</td><td>1</td><td class="ok">Terminée</td><td>Vérifié sur PC</td></tr>
+      <tr><td>6. Identité et sécurité Keycloak</td><td>2</td><td class="ok">Terminée</td><td>401 sur jeton absent, falsifié, expiré</td></tr>
+      <tr><td>7. Service Ordering (US-06 à US-09)</td><td>2</td><td class="ok">Terminée</td><td>10 envois → 1 commande</td></tr>
+      <tr><td>8. Kafka : outbox, inbox, DLQ</td><td>3</td><td class="ok">Terminée</td><td>Broker en panne : rien perdu</td></tr>
+      <tr><td>9. Saga, Payment, Notification</td><td>3</td><td class="ok">Terminée</td><td>Compensation testée</td></tr>
+      <tr><td>10. Observabilité Grafana (US-19, US-20)</td><td>4</td><td class="ok">Terminée</td><td>Panne de Payment : 0 perte</td></tr>
+      <tr><td>11. Expédition et suivi (US-13, US-14)</td><td>4</td><td class="ok">Terminée</td><td>Parcours jusqu'à DELIVERED</td></tr>
+      <tr><td>12. Site web et critères Gherkin exécutables</td><td>4</td><td class="ok">Terminée</td><td>59 scénarios Gherkin verts</td></tr>
+      <tr><td>13. Recherche, alerte stock, boutiques, tableau de bord, audit (US-04, 12, 16, 17, 18)</td><td>4</td><td class="ok">Terminée</td><td>Vérifié sur PC</td></tr>
+      <tr><td>14. Mise en production : Helm + HPA, k6 (SLO), arc42, CHANGELOG</td><td>5</td><td class="ok">Terminée</td><td>41 objets Kubernetes valides</td></tr>
+      <tr><td><b>Total : 20 user stories sur 20</b></td><td></td><td></td><td><b>286 tests verts (+ 7 sur Kafka en CI)</b></td></tr>
     </table>
   </div>
 </section>
@@ -486,6 +498,112 @@
     <img src="img/s4-shipping-tests.png" alt="Tests de l'expédition">
     <figcaption>Figure 23 — Tests de l'expédition : droits du vendeur, validation, états SHIPPED puis DELIVERED, annulation refusée après expédition, et parcours complet commande → paiement → deux colis → livraison avec les notifications du client.</figcaption>
   </figure>
+</section>
+
+<!-- ======================= TÂCHE 12 ======================= -->
+<section class="task">
+  <h2>Tâche 12 — Site web et critères Gherkin exécutables (Sprint 4) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Donner à Souqly un vrai site pour les trois acteurs (client, vendeur, administrateur), et rendre les critères d'acceptation des stories exécutables.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Site <code>Souqly.Web</code></td><td>HTML, CSS et JavaScript sans framework, servis par ASP.NET Core sur http://localhost:5173 et lancés par F5 avec le reste. Carrousel plein écran, catalogue, fiche produit en rotation 3D, panier, commandes, espace vendeur, administration.</td></tr>
+    <tr><td>Connexion sécurisée (BFF)</td><td>Connexion Keycloak côté serveur (code + PKCE) : les jetons restent dans un cookie chiffré <code>HttpOnly</code>, le JavaScript n'en voit jamais. Le serveur relaie <code>/api</code> vers la passerelle en ajoutant le jeton ; CSRF bloqué par <code>SameSite=Lax</code> et un en-tête obligatoire.</td></tr>
+    <tr><td>Pages Keycloak à l'image de Souqly</td><td>Connexion « lampe » (tirer le cordon allume la lampe et éclaire le formulaire), inscription « lanterne ». Thème versionné dans <code>infra/keycloak/themes</code>.</td></tr>
+    <tr><td>Suivi de commande animé</td><td>Une camionnette porte le colis d'une étape à l'autre (Reçue → Stock réservé → Payée → Expédiée → Livrée) et annonce la livraison.</td></tr>
+    <tr><td>Critères Gherkin exécutables</td><td>Un fichier <code>.feature</code> en français par story, exécuté par Reqnroll contre les vrais services démarrés en mémoire. Chaque exécution écrit un rapport OK/KO, conservé par la CI.</td></tr>
+    <tr><td>Page admin « Gherkin »</td><td>Deux onglets : les <b>parcours réels</b> des utilisateurs, traduits en Gherkin par la passerelle avec OK/KO par action, et la <b>recette</b> (résultat de chaque scénario automatique).</td></tr>
+  </table>
+  <figure>
+    <img src="img/s4-connexion-lampe.png" alt="Connexion lampe">
+    <figcaption>Figure 24 — Page de connexion Keycloak au thème Souqly : le cordon tiré, la lampe éclaire le formulaire.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s4-camionnette.png" alt="Suivi de commande">
+    <figcaption>Figure 25 — Commande de sara livrée : la camionnette est arrivée à « Livrée », colis Amana n° AM123456789MA (vérifié sur le PC le 23/11/2026).</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s4-gherkin-parcours.png" alt="Parcours en Gherkin">
+    <figcaption>Figure 26 — Page admin Gherkin : le parcours réel de sara écrit en Gherkin, chaque action avec sa réponse (OK 200, 202, 204).</figcaption>
+  </figure>
+  <div class="note"><b>Deux défauts trouvés en testant sur le PC, corrigés avec un test de non-régression.</b> Le site attendait le statut produit <code>PUBLISHED</code> alors que l'API renvoie <code>ACTIVE</code> : bouton « Commander » grisé et produits affichés « Archivé ». La page commande affichait l'identifiant du vendeur au lieu du nom de sa boutique.</div>
+</section>
+
+<!-- ======================= TÂCHE 13 ======================= -->
+<section class="task">
+  <h2>Tâche 13 — Recherche, alerte de stock, boutiques, tableau de bord et audit (US-04, 12, 16, 17, 18) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Terminer les dernières stories : trouver un produit malgré les fautes, prévenir le vendeur avant la rupture, ouvrir la vente à de nouveaux artisans, leur donner un tableau de bord et tracer les actions sensibles.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Story</th><th>Réalisation</th></tr>
+    <tr><td>US-04 Rechercher</td><td>Nouveau service <b>Search</b> (CQRS) avec sa base <code>search_db</code>, alimenté par les événements <code>ProductCreated/Updated/Archived</code> de Catalog (outbox). Similarité de trigrammes PostgreSQL (<code>pg_trgm</code>) : « tapi berbre » trouve « Tapis berbère ». Filtres de prix et de catégorie, facettes. Si Search tombe, le site repasse sur la recherche de Catalog (ADR-015).</td></tr>
+    <tr><td>US-12 Alerte de stock bas</td><td>Seuil réglable par produit (3 par défaut). Inventory publie <code>LowStock</code> seulement quand le seuil est franchi ; le vendeur reçoit « stock bas » ou « rupture » dans ses notifications.</td></tr>
+    <tr><td>US-16 Devenir vendeur</td><td>Demande de boutique (nom, ville, description), validation ou refus motivé par l'administrateur ; le rôle VENDOR est attribué dans Keycloak par le compte technique <code>catalog-service</code>, et le jeton est rafraîchi sans reconnexion.</td></tr>
+    <tr><td>US-17 Tableau de bord vendeur</td><td>Ventes du jour (heure du Maroc), commandes payées, articles vendus, commandes à préparer, ruptures et stocks bas. Le vendeur ne voit que ses propres lignes.</td></tr>
+    <tr><td>US-18 Journal d'audit</td><td>La passerelle enregistre chaque écriture authentifiée (qui, quoi, résultat, durée, trace), y compris les refus ; ni e-mail ni jeton n'y figurent. Page réservée à l'administrateur.</td></tr>
+  </table>
+  <figure>
+    <img src="img/s4-recherche.png" alt="Recherche tolérante aux fautes">
+    <figcaption>Figure 27 — US-04 : la recherche « tapi berbre » (deux fautes) trouve les tapis berbères, classés par pertinence, avec le filtre de prix.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s4-admin-boutiques.png" alt="Boutiques validées">
+    <figcaption>Figure 28 — US-16 : la boutique « Atelier Makla » (Oujda) validée par l'administrateur.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s4-tableau-de-bord-vendeur.png" alt="Tableau de bord vendeur">
+    <figcaption>Figure 29 — US-17 : tableau de bord de karim après la vente du ras el hanout.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s4-journal-audit.png" alt="Journal d'audit">
+    <figcaption>Figure 30 — US-18 : journal d'audit ; on lit la commande de sara (202), puis l'expédition et la livraison déclarées par karim.</figcaption>
+  </figure>
+  <div class="note"><b>Défaut corrigé.</b> La validation d'une boutique renvoyait 503 : lire le rôle VENDOR demandait le droit <code>view-realm</code>, que le compte technique n'a pas. Le rôle est maintenant lu dans la liste des rôles attribuables à l'utilisateur, ce que permet <code>manage-users</code>.</div>
+</section>
+
+<!-- ======================= TÂCHE 14 ======================= -->
+<section class="task">
+  <h2>Tâche 14 — Mise en production : Kubernetes, tests de charge, documentation (Sprint 5) <span class="badge">Terminée</span></h2>
+  <p><b>Objectif.</b> Livrer ce qu'il faut pour exploiter Souqly en production : un déploiement Kubernetes qui grandit seul pendant un pic, des objectifs de performance vérifiables, et une documentation d'architecture complète.</p>
+
+  <h3>Ce qui a été fait</h3>
+  <table class="t">
+    <tr><th>Livrable</th><th>Contenu</th></tr>
+    <tr><td>Chart Helm <code>deploy/helm/souqly</code></td><td>Un seul chart pour les 9 services (ADR-016) : <code>Deployment</code>, <code>Service</code>, sondes <code>/health/live</code> et <code>/health/ready</code>, requêtes et limites CPU/mémoire, mise à jour sans coupure, ingress TLS (<code>souqly.ma</code>, <code>api.souqly.ma</code>), <code>helm test</code>.</td></tr>
+    <tr><td>Autoscaling (HPA)</td><td>Cible 70 % de CPU sur les services qui subissent les pics : passerelle (2→6 pods), Catalog (2→8), Search, Cart et Ordering (2→6). Montée immédiate, descente lente (5 min) pour ne pas osciller.</td></tr>
+    <tr><td>Disponibilité et sécurité</td><td><code>PodDisruptionBudget</code>, répartition sur plusieurs nœuds, <code>NetworkPolicy</code> (seule la passerelle joint les services), conteneurs non root en lecture seule, secrets dans un <code>Secret</code> créé hors du chart.</td></tr>
+    <tr><td>Publication</td><td>Workflow <code>release</code> : une étiquette <code>v1.0.0</code> construit les 9 images et publie images et chart sur GHCR. La CI vérifie le chart à chaque push (<code>helm lint</code>, <code>kubeconform</code>).</td></tr>
+    <tr><td>Tests de charge k6 (<code>tests/load</code>)</td><td>Les SLO sont des seuils : catalogue et fiche p95 &lt; 300 ms, recherche p95 &lt; 500 ms, création de commande p95 &lt; 800 ms, moins de 1 % d'erreurs. Trois profils : <code>fumee</code>, <code>charge</code> (≈ 150 requêtes/s), <code>pic</code> (trafic × 4 en 20 s, pour voir le HPA réagir).</td></tr>
+    <tr><td>Documentation</td><td><code>docs/architecture/arc42.md</code> (12 sections : objectifs de qualité, contraintes, contexte, vues en blocs, d'exécution et de déploiement, concepts, décisions, SLO, risques, glossaire), ADR-016, <code>CHANGELOG.md</code> (versions 0.1.0 à 1.0.0, une par sprint).</td></tr>
+  </table>
+  <figure>
+    <img src="img/s5-helm.png" alt="Validation du chart Helm">
+    <figcaption>Figure 31 — Les 41 objets Kubernetes générés par le chart (valeurs de production) et les 35 de la configuration de démonstration sont valides pour Kubernetes 1.31 ; 5 HPA.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s5-k6.png" alt="Seuils k6">
+    <figcaption>Figure 32 — Les objectifs de service écrits comme seuils k6 : un seuil non tenu fait échouer le test.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s5-tests.png" alt="Tous les tests">
+    <figcaption>Figure 33 — Version finale : 286 tests verts, dont les 59 scénarios Gherkin des stories (les 7 tests sur vrai Kafka tournent dans la CI).</figcaption>
+  </figure>
+  <div class="note"><b>Limites, notées dans l'arc42 et l'ADR-016.</b> Les mesures k6 se font sur la plateforme démarrée (PC ou cluster) : le script est prêt, la mesure réelle reste à faire avant la soutenance. Les objets Kubernetes ont été validés hors cluster (helm et kubeconform), pas encore installés sur un vrai cluster. Les sessions du site sont liées à un pod (affinité de l'ingress) tant que les clés de chiffrement ne sont pas partagées.</div>
+</section>
+
+<section class="task">
+  <h2>Bilan final</h2>
+  <table class="t">
+    <tr><th>Sprint</th><th>Version</th><th>Stories</th><th>Livré</th></tr>
+    <tr><td>0 et 1</td><td>0.1.0</td><td>US-01, 02, 03, 05, 10, 11</td><td>Socle, Catalog, Inventory, Cart, passerelle, Compose, F5</td></tr>
+    <tr><td>2</td><td>0.2.0</td><td>US-06, 07, 08, 09</td><td>Keycloak, Ordering idempotent et résilient</td></tr>
+    <tr><td>3</td><td>0.3.0</td><td>US-15 (et saga des US-06 à 11)</td><td>Kafka, saga, Payment, Notification</td></tr>
+    <tr><td>4</td><td>0.4.0</td><td>US-04, 12, 13, 14, 16, 17, 18, 19, 20</td><td>Search, alertes, expédition, boutiques, audit, Grafana, site web, Gherkin</td></tr>
+    <tr><td>5</td><td>1.0.0</td><td>—</td><td>Helm + HPA, k6, arc42, CHANGELOG</td></tr>
+  </table>
+  <p><b>20 user stories sur 20</b>, 12 décisions d'architecture (ADR), 286 tests verts. Pistes : saga p95 à ramener de 7 s à 5 s (réveil du publieur de l'outbox), sessions du site partagées entre pods, Kafka authentifié (SASL/mTLS).</p>
 </section>
 
 <!--NEXT-TASKS-->

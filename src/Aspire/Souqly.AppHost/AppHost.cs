@@ -209,6 +209,16 @@ if (grafana is not null)
     gateway.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
 }
 
+// Tests de charge k6 (tests/load) : tous les utilisateurs virtuels viennent de la même adresse IP.
+// dotnet run --project src/Aspire/Souqly.AppHost -- --RateLimiting:PermitsPerSecond=2000
+var loadTestRateLimit = builder.Configuration["RateLimiting:PermitsPerSecond"];
+if (!string.IsNullOrEmpty(loadTestRateLimit))
+{
+    gateway
+        .WithEnvironment("RateLimiting__PermitsPerSecond", loadTestRateLimit)
+        .WithEnvironment("RateLimiting__Burst", loadTestRateLimit);
+}
+
 // Site web (HTML, CSS, JavaScript servis par ASP.NET Core) sur http://localhost:5173 :
 // il gère la connexion Keycloak et relaie /api vers la passerelle.
 var web = builder.AddProject<Projects.Souqly_Web>("web")

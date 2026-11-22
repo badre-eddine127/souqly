@@ -1,0 +1,21 @@
+{{- $root := . -}}
+{{- range $name, $svc := .Values.services }}
+{{- $cfg := include "souqly.serviceConfig" (dict "root" $root "svc" $svc) | fromYaml }}
+{{- $min := ternary $cfg.autoscaling.minReplicas $cfg.replicas $cfg.autoscaling.enabled }}
+{{- if gt (int $min) 1 }}
+---
+# Pendant une maintenance de nœud, au moins un pod reste en service.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "souqly.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "souqly.labels" $root | nindent 4 }}
+    {{- include "souqly.instanceLabel" $root | nindent 4 }}
+spec:
+  minAvailable: {{ $cfg.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "souqly.selectorLabels" (dict "root" $root "name" $name) | nindent 6 }}
+{{- end }}
+{{- end }}

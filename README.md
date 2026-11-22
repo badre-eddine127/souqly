@@ -135,6 +135,21 @@ Les tests d'intégration utilisent PostgreSQL via Testcontainers (Docker requis)
 
 Les critères d'acceptation des stories sont écrits en **Gherkin, en français**, dans `tests/Acceptance.Tests/Features/*.feature`, et **exécutés** par Reqnroll contre les services réels démarrés en mémoire (passerelle, Catalog, Cart, Ordering, Inventory, Payment, Notification, Search ; seul Keycloak est remplacé par des jetons de test). Ils tournent dans la CI avec le reste : `dotnet test tests/Acceptance.Tests`. Chaque exécution écrit `artifacts/gherkin-report.json` (scénarios, étapes, OK/KO), affiché dans la page admin **Gherkin › Recette** du site et conservé comme artefact `gherkin-report` de la CI. L'onglet **Parcours en direct** de la même page montre les actions réelles des utilisateurs, traduites en Gherkin par la passerelle.
 
+### Tests de charge (k6)
+
+Les objectifs de service (catalogue p95 < 300 ms, recherche p95 < 500 ms, commande p95 < 800 ms, moins de 1 % d'erreurs) sont écrits comme seuils dans [`tests/load/souqly.js`](tests/load/souqly.js) : `k6 run tests/load/souqly.js` (fumée), `-e PROFILE=charge` ou `-e PROFILE=pic` (vente flash). Mode d'emploi : [tests/load/README.md](tests/load/README.md).
+
+## Déployer sur Kubernetes (Helm)
+
+Le chart [`deploy/helm/souqly`](deploy/helm/souqly) installe les 9 services avec sondes de santé, limites de ressources, **autoscaling horizontal** (HPA, 70 % de CPU) pour la passerelle, Catalog, Search, Cart et Ordering, `PodDisruptionBudget`, `NetworkPolicy` et ingress TLS ([ADR-016](docs/adr/ADR-016-deploiement-kubernetes-helm.md)). Une étiquette `vX.Y.Z` publie les images et le chart sur GHCR (workflow `release`).
+
+```bash
+helm upgrade --install souqly deploy/helm/souqly -n souqly --create-namespace -f deploy/helm/souqly/values-demo.yaml
+kubectl -n souqly get pods,hpa
+```
+
+Prérequis, production et démonstration du HPA : [deploy/helm/README.md](deploy/helm/README.md).
+
 ## Structure
 
 ```
@@ -145,12 +160,16 @@ tests/Acceptance.Tests/Features     # critères d'acceptation Gherkin exécutabl
 src/Web/Souqly.Web                  # site web : HTML, CSS, JavaScript servis par ASP.NET Core
 contracts/openapi · asyncapi        # contrats écrits avant le code
 infra/compose · keycloak · postgres # environnement local
+deploy/helm/souqly                  # chart Kubernetes (production)
+tests/load                          # tests de charge k6 (SLO)
 docs/adr · architecture · operations · security · compte-rendu
 ```
 
 ## Documentation
 
-- [Décisions d'architecture (ADR)](docs/adr/)
+- [Architecture (arc42)](docs/architecture/arc42.md) et [décisions d'architecture (ADR)](docs/adr/)
+- [Journal des modifications](CHANGELOG.md)
+- [Runbook d'exploitation](docs/operations/runbook.md)
 - [Modèle de menaces (STRIDE)](docs/security/threat-model.md) et [registre des traitements (loi 09-08)](docs/security/registre-traitements.md)
 - [Compte rendu d'avancement (PDF)](docs/compte-rendu/)
 - [Contribuer](CONTRIBUTING.md)
