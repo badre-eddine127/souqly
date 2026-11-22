@@ -28,6 +28,7 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             t.HasCheckConstraint("ck_stock_reserved_positive", "reserved >= 0");
             t.HasCheckConstraint("ck_stock_reserved_le_on_hand", "reserved <= on_hand");
         });
+        b.Property(s => s.LowStockThreshold).HasDefaultValue(StockItem.DefaultLowStockThreshold);
         b.HasKey(s => s.ProductId);
         b.Property(s => s.ProductId).ValueGeneratedNever();
         b.Property(s => s.VendorId).HasMaxLength(64).IsRequired();

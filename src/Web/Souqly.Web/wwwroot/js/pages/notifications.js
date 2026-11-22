@@ -25,7 +25,9 @@ export async function notificationsPage(app) {
             </div>
             ${n.kind === "NEW_ORDER"
               ? `<a href="/vendeur/commandes" data-link>Préparer</a>`
-              : session.is("CUSTOMER") ? `<a href="/commandes/${n.orderId}" data-link>Voir la commande</a>` : ""}
+              : n.kind === "LOW_STOCK" || n.kind === "OUT_OF_STOCK"
+                ? `<a href="/vendeur/produits" data-link>Réapprovisionner</a>`
+                : n.orderId && session.is("CUSTOMER") ? `<a href="/commandes/${n.orderId}" data-link>Voir la commande</a>` : ""}
           </div>`)
         .join("")}
     </div>`;

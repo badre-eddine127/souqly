@@ -9,6 +9,11 @@ public sealed class StockItem
 {
     public const int MaxOnHand = 1_000_000;
 
+    /// <summary>Seuil d'alerte par défaut (US-12) : prévenir quand il reste 3 unités disponibles ou moins.</summary>
+    public const int DefaultLowStockThreshold = 3;
+
+    public const int MaxLowStockThreshold = 1000;
+
     private StockItem()
     {
         VendorId = string.Empty;
@@ -18,6 +23,10 @@ public sealed class StockItem
     public string VendorId { get; private set; }
     public int OnHand { get; private set; }
     public int Reserved { get; private set; }
+
+    /// <summary>US-12 : le vendeur est alerté quand la disponibilité passe à ce seuil ou en dessous.</summary>
+    public int LowStockThreshold { get; private set; } = DefaultLowStockThreshold;
+
     public DateTimeOffset UpdatedAt { get; private set; }
 
     /// <summary>Jeton de concurrence optimiste (xmin) pour les modifications faites par le vendeur.</summary>
@@ -38,6 +47,24 @@ public sealed class StockItem
     }
 
     public bool IsOwnedBy(string vendorId) => string.Equals(VendorId, vendorId, StringComparison.Ordinal);
+
+    /// <summary>US-12 : seuil d'alerte choisi par le vendeur (0 = alerte seulement à la rupture).</summary>
+    public void SetLowStockThreshold(int threshold, DateTimeOffset now)
+    {
+        if (threshold is < 0 or > MaxLowStockThreshold)
+        {
+            throw new StockRuleException("invalid-threshold", $"Le seuil d'alerte doit être compris entre 0 et {MaxLowStockThreshold}.");
+        }
+
+        LowStockThreshold = threshold;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// US-12 : vrai seulement au franchissement du seuil (on était au-dessus, on est à ou sous le seuil) :
+    /// une alerte par passage, pas une à chaque vente suivante.
+    /// </summary>
+    public bool CrossedLowStock(int availableBefore) => availableBefore > LowStockThreshold && Available <= LowStockThreshold;
 
     /// <summary>US-10 : le vendeur fixe son stock physique. Il ne peut pas descendre sous ce qui est déjà réservé.</summary>
     public void SetOnHand(int onHand, DateTimeOffset now)

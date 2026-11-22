@@ -78,6 +78,12 @@ namespace Souqly.Inventory.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("product_id");
 
+                    b.Property<int>("LowStockThreshold")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("low_stock_threshold");
+
                     b.Property<int>("OnHand")
                         .HasColumnType("integer")
                         .HasColumnName("on_hand");

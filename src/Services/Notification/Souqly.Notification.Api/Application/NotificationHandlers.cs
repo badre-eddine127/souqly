@@ -19,6 +19,8 @@ public sealed record OrderShipped(Guid OrderId, string CustomerId, string Vendor
 
 public sealed record OrderDelivered(Guid OrderId, string CustomerId, string VendorId, bool AllDelivered);
 
+public sealed record LowStock(long ProductId, string VendorId, string? ProductName, int Available, int Threshold);
+
 /// <summary>
 /// Transforme les événements de la saga en messages lisibles. Le client est prévenu de chaque issue ;
 /// chaque vendeur reçoit seulement ses propres lignes d'une commande confirmée (RG-05).
@@ -30,7 +32,8 @@ public sealed partial class NotificationHandlers(NotificationDbContext db, TimeP
     IMessageHandler<OrderCancelled>,
     IMessageHandler<PaymentRefunded>,
     IMessageHandler<OrderShipped>,
-    IMessageHandler<OrderDelivered>
+    IMessageHandler<OrderDelivered>,
+    IMessageHandler<LowStock>
 {
     private static readonly Dictionary<string, string> CarrierNames = new(StringComparer.Ordinal)
     {
@@ -100,6 +103,18 @@ public sealed partial class NotificationHandlers(NotificationDbContext db, TimeP
             ? $"Votre commande {Short(message.OrderId)} est entièrement livrée. Merci pour votre achat sur Souqly !"
             : $"Un colis de votre commande {Short(message.OrderId)} est livré ; les autres sont encore en route.";
         Notify(message.CustomerId, message.AllDelivered ? "ORDER_DELIVERED" : "PARCEL_DELIVERED", message.OrderId, "Colis livré", body);
+        return db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>US-12 : le vendeur est prévenu qu'un produit passe sous son seuil d'alerte (ou en rupture).</summary>
+    public Task HandleAsync(LowStock message, MessageContext context, CancellationToken ct)
+    {
+        var product = string.IsNullOrWhiteSpace(message.ProductName) ? $"votre produit n° {message.ProductId}" : $"« {message.ProductName} »";
+        var (kind, title, body) = message.Available == 0
+            ? ("OUT_OF_STOCK", "Rupture de stock", $"Plus aucune unité disponible pour {product}. Il n'apparaît plus comme achetable : réapprovisionnez-le.")
+            : ("LOW_STOCK", "Stock bas", $"Plus que {message.Available} unité{(message.Available > 1 ? "s" : string.Empty)} disponible{(message.Available > 1 ? "s" : string.Empty)} pour {product} (seuil d'alerte : {message.Threshold}).");
+        db.Notifications.Add(Domain.Notification.Create(message.VendorId, kind, null, title, body, clock.GetUtcNow(), message.ProductId));
+        LogEmail(logger, message.VendorId, title);
         return db.SaveChangesAsync(ct);
     }
 

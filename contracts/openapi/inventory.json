@@ -488,6 +488,15 @@
                             "string"
                         ],
                         "format": "int32"
+                    },
+                    "lowStockThreshold": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     }
                 }
             },
@@ -498,6 +507,7 @@
                     "onHand",
                     "reserved",
                     "available",
+                    "lowStockThreshold",
                     "updatedAt"
                 ],
                 "type": "object",
@@ -530,6 +540,14 @@
                         "format": "int32"
                     },
                     "available": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "lowStockThreshold": {
                         "pattern": "^-?(?:0|[1-9]\\d*)$",
                         "type": [
                             "integer",

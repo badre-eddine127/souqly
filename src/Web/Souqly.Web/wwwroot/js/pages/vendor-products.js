@@ -27,7 +27,7 @@ export async function vendorProductsPage(app) {
               .map((p) => {
                 const [label, tone] = STATUS_LABELS[p.status] ?? [p.status, "info"];
                 const stock = p.stock
-                  ? `${p.stock.available} / ${p.stock.reserved}${Number(p.stock.available) <= 2 ? ` <span class="warn">⚠ bas</span>` : ""}`
+                  ? `${p.stock.available} / ${p.stock.reserved}${Number(p.stock.available) <= Number(p.stock.lowStockThreshold ?? 3) ? ` <span class="warn">⚠ ${Number(p.stock.available) === 0 ? "rupture" : "bas"}</span>` : ""}`
                   : `<span class="muted">non déclaré</span>`;
                 return `<tr>
                   <td>${productVisual(p.name, p.categoryId, "sm")}</td>
@@ -116,7 +116,12 @@ export async function vendorProductsPage(app) {
       <h2>Stock — ${esc(p.name)}</h2>
       ${p.stock ? `<p class="muted">En main : ${p.stock.onHand} · réservé : ${p.stock.reserved} · disponible : ${p.stock.available}</p>` : ""}
       <h3>Déclarer le stock physique</h3>
-      <div class="inline"><input type="number" min="0" id="onhand" value="${p.stock?.onHand ?? 0}" /><button class="btn" id="declare">Enregistrer</button></div>
+      <div class="inline">
+        <label class="small">En main<input type="number" min="0" id="onhand" value="${p.stock?.onHand ?? 0}" /></label>
+        <label class="small" title="Vous recevez une notification quand le disponible passe à ce nombre ou en dessous">Alerte à<input type="number" min="0" max="1000" id="threshold" value="${p.stock?.lowStockThreshold ?? 3}" /></label>
+        <button class="btn" id="declare">Enregistrer</button>
+      </div>
+      <p class="muted small">Alerte de stock bas : une notification quand il reste ce nombre d'unités disponibles ou moins (0 = seulement à la rupture).</p>
       ${p.stock ? `
         <h3>Ajuster (entrée, casse, inventaire…)</h3>
         <div class="inline">
@@ -127,7 +132,9 @@ export async function vendorProductsPage(app) {
       <div class="modal-actions"><button class="btn btn-ghost" data-close>Fermer</button></div>`);
     m.root.querySelector("[data-close]").addEventListener("click", m.close);
     m.root.querySelector("#declare").addEventListener("click", async () => {
-      const { ok, error } = await api("PUT", `/api/v1/stock-items/${p.id}`, { body: { onHand: Number(m.root.querySelector("#onhand").value) } });
+      const { ok, error } = await api("PUT", `/api/v1/stock-items/${p.id}`, {
+        body: { onHand: Number(m.root.querySelector("#onhand").value), lowStockThreshold: Number(m.root.querySelector("#threshold").value) },
+      });
       if (!ok) return toast(problemMessage(error), "ko");
       toast("Stock déclaré");
       m.close();

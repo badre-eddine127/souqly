@@ -7,8 +7,14 @@ public interface IStockStore
 
     void Add(StockItem item);
 
-    /// <summary>US-17 : stocks d'un vendeur dont le disponible est inférieur ou égal au seuil (ruptures et stocks bas).</summary>
-    Task<IReadOnlyList<StockItem>> ListLowForVendorAsync(string vendorId, int threshold, CancellationToken ct);
+    /// <summary>
+    /// US-17 : stocks d'un vendeur dont le disponible est inférieur ou égal au seuil (ruptures et stocks bas).
+    /// Sans seuil imposé, celui de chaque produit (US-12).
+    /// </summary>
+    Task<IReadOnlyList<StockItem>> ListLowForVendorAsync(string vendorId, int? threshold, CancellationToken ct);
+
+    /// <summary>État actuel en base (non suivi), par exemple juste après une réservation atomique.</summary>
+    Task<IReadOnlyList<StockItem>> ListAsync(IReadOnlyCollection<long> productIds, CancellationToken ct);
 
     /// <summary>
     /// Réserve <paramref name="quantity"/> unités si et seulement si elles sont disponibles,

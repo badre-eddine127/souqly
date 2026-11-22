@@ -1,240 +1,257 @@
 {
-  "openapi": "3.1.1",
-  "info": {
-    "title": "Souqly Notification API",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/api/v1/notifications": {
-      "get": {
-        "tags": [
-          "Notifications"
-        ],
-        "summary": "Mes notifications (client ou vendeur), les plus récentes d'abord",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageResponseOfNotificationResponse"
-                }
-              }
-            }
-          }
-        }
-      }
+    "openapi": "3.1.1",
+    "info": {
+        "title": "Souqly Notification API",
+        "version": "1.0.0"
     },
-    "/api/v1/notifications/{id}/read": {
-      "post": {
-        "tags": [
-          "Notifications"
-        ],
-        "summary": "Marquer une notification comme lue",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          }
-        }
-      }
-    },
-    "/api/v1/notifications/read-all": {
-      "post": {
-        "tags": [
-          "Notifications"
-        ],
-        "summary": "Marquer toutes mes notifications comme lues (ouverture de la cloche)",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReadAllResponse"
+    "paths": {
+        "/api/v1/notifications": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mes notifications (client ou vendeur), les plus r\u00e9centes d'abord",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PageResponseOfNotificationResponse"
+                                }
+                            }
+                        }
+                    }
                 }
-              }
             }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "NotificationResponse": {
-        "required": [
-          "id",
-          "kind",
-          "orderId",
-          "title",
-          "body",
-          "createdAt",
-          "read"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "orderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string"
-          },
-          "body": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "read": {
-            "type": "boolean"
-          }
-        }
-      },
-      "PageResponseOfNotificationResponse": {
-        "required": [
-          "content",
-          "page",
-          "size",
-          "totalElements",
-          "totalPages"
-        ],
-        "type": "object",
-        "properties": {
-          "content": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/NotificationResponse"
-            }
-          },
-          "page": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "size": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "totalElements": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "totalPages": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          }
         },
-        "description": "Réponse paginée normalisée : { content, page, size, totalElements, totalPages }."
-      },
-      "ReadAllResponse": {
-        "required": [
-          "updated"
-        ],
-        "type": "object",
-        "properties": {
-          "updated": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      }
-    },
-    "securitySchemes": {
-      "oauth2": {
-        "type": "oauth2",
-        "description": "Connexion Keycloak (realm souqly), client public souqly-web avec PKCE.",
-        "flows": {
-          "authorizationCode": {
-            "authorizationUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/auth",
-            "tokenUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/token",
-            "scopes": {
-              "openid": "Identité OpenID Connect"
+        "/api/v1/notifications/{id}/read": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Marquer une notification comme lue",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
             }
-          }
+        },
+        "/api/v1/notifications/read-all": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Marquer toutes mes notifications comme lues (ouverture de la cloche)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReadAllResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-      },
-      "bearer": {
-        "type": "http",
-        "description": "Jeton d'accès Keycloak collé à la main (Authorization: Bearer …).",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
-    }
-  },
-  "security": [
-    {
-      "oauth2": [
-        "openid"
-      ]
     },
-    {
-      "bearer": []
-    }
-  ],
-  "tags": [
-    {
-      "name": "Notifications"
-    }
-  ]
+    "components": {
+        "schemas": {
+            "NotificationResponse": {
+                "required": [
+                    "id",
+                    "kind",
+                    "orderId",
+                    "productId",
+                    "title",
+                    "body",
+                    "createdAt",
+                    "read"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "orderId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "uuid"
+                    },
+                    "productId": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "read": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PageResponseOfNotificationResponse": {
+                "required": [
+                    "content",
+                    "page",
+                    "size",
+                    "totalElements",
+                    "totalPages"
+                ],
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NotificationResponse"
+                        }
+                    },
+                    "page": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "size": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalElements": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalPages": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                },
+                "description": "R\u00e9ponse pagin\u00e9e normalis\u00e9e : { content, page, size, totalElements, totalPages }."
+            },
+            "ReadAllResponse": {
+                "required": [
+                    "updated"
+                ],
+                "type": "object",
+                "properties": {
+                    "updated": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "oauth2": {
+                "type": "oauth2",
+                "description": "Connexion Keycloak (realm souqly), client public souqly-web avec PKCE.",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/auth",
+                        "tokenUrl": "http://localhost:8180/realms/souqly/protocol/openid-connect/token",
+                        "scopes": {
+                            "openid": "Identit\u00e9 OpenID Connect"
+                        }
+                    }
+                }
+            },
+            "bearer": {
+                "type": "http",
+                "description": "Jeton d'acc\u00e8s Keycloak coll\u00e9 \u00e0 la main (Authorization: Bearer \u2026).",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "security": [
+        {
+            "oauth2": [
+                "openid"
+            ]
+        },
+        {
+            "bearer": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Notifications"
+        }
+    ]
 }

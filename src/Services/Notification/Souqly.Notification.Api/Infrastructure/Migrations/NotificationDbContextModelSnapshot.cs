@@ -135,9 +135,13 @@ namespace Souqly.Notification.Api.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("kind");
 
-                    b.Property<Guid>("OrderId")
+                    b.Property<Guid?>("OrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
+
+                    b.Property<long?>("ProductId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("product_id");
 
                     b.Property<DateTimeOffset?>("ReadAt")
                         .HasColumnType("timestamp with time zone")

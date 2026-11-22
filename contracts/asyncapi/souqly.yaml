@@ -34,6 +34,7 @@ channels:
     messages:
       StockReserved: { $ref: '#/components/messages/StockReserved' }
       StockReservationFailed: { $ref: '#/components/messages/StockReservationFailed' }
+      LowStock: { $ref: '#/components/messages/LowStock' }
   paymentEvents:
     address: souqly.payment.payment-events.v1
     description: Publié par Payment.
@@ -100,6 +101,11 @@ operations:
       - $ref: '#/channels/orderEvents/messages/OrderCancelled'
       - $ref: '#/channels/orderEvents/messages/OrderShipped'
       - $ref: '#/channels/orderEvents/messages/OrderDelivered'
+  notification-receives-stock:
+    action: receive
+    channel: { $ref: '#/channels/stockEvents' }
+    messages:
+      - $ref: '#/channels/stockEvents/messages/LowStock'
   notification-receives-payments:
     action: receive
     channel: { $ref: '#/channels/paymentEvents' }
@@ -297,3 +303,15 @@ components:
         required: [product]
         properties:
           product: { $ref: '#/components/schemas/ProductSnapshot' }
+    LowStock:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: US-12 — la disponibilité vient de passer au seuil d'alerte du vendeur ou en dessous (une fois par passage). Clé = identifiant du produit.
+      payload:
+        type: object
+        required: [productId, vendorId, available, threshold]
+        properties:
+          productId: { type: integer, format: int64 }
+          vendorId: { type: string, description: sub Keycloak du vendeur }
+          productName: { type: [string, 'null'], description: Connu seulement si l'alerte vient d'une commande }
+          available: { type: integer, minimum: 0 }
+          threshold: { type: integer, minimum: 0, maximum: 1000 }

@@ -8,12 +8,13 @@ namespace Souqly.Inventory.Application;
 public sealed record AvailabilityResponse(long ProductId, int Available, bool InStock);
 
 /// <summary>Vue du vendeur propriétaire.</summary>
-public sealed record StockItemResponse(long ProductId, string VendorId, int OnHand, int Reserved, int Available, DateTimeOffset UpdatedAt)
+public sealed record StockItemResponse(long ProductId, string VendorId, int OnHand, int Reserved, int Available, int LowStockThreshold, DateTimeOffset UpdatedAt)
 {
-    public static StockItemResponse From(StockItem s) => new(s.ProductId, s.VendorId, s.OnHand, s.Reserved, s.Available, s.UpdatedAt);
+    public static StockItemResponse From(StockItem s) => new(s.ProductId, s.VendorId, s.OnHand, s.Reserved, s.Available, s.LowStockThreshold, s.UpdatedAt);
 }
 
-public sealed record SetStockRequest(int OnHand);
+/// <summary>Stock physique déclaré ; seuil d'alerte facultatif (US-12, inchangé s'il est absent).</summary>
+public sealed record SetStockRequest(int OnHand, int? LowStockThreshold = null);
 
 public sealed record AdjustStockRequest(int Delta, string Reason);
 
@@ -33,7 +34,11 @@ public sealed record ReservationResult(Guid OrderId, string Status, long? Failed
 
 public sealed class SetStockRequestValidator : AbstractValidator<SetStockRequest>
 {
-    public SetStockRequestValidator() => RuleFor(r => r.OnHand).InclusiveBetween(0, StockItem.MaxOnHand);
+    public SetStockRequestValidator()
+    {
+        RuleFor(r => r.OnHand).InclusiveBetween(0, StockItem.MaxOnHand);
+        RuleFor(r => r.LowStockThreshold).InclusiveBetween(0, StockItem.MaxLowStockThreshold).When(r => r.LowStockThreshold is not null);
+    }
 }
 
 public sealed class AdjustStockRequestValidator : AbstractValidator<AdjustStockRequest>

@@ -119,7 +119,7 @@ public sealed record StockView(long ProductId, string VendorId, int OnHand, int 
 
 public sealed record PaymentView(Guid Id, Guid OrderId, string Status, string Amount, string Currency);
 
-public sealed record NotificationView(Guid Id, string Kind, Guid OrderId, string Title, string Body, bool Read);
+public sealed record NotificationView(Guid Id, string Kind, Guid? OrderId, long? ProductId, string Title, string Body, bool Read);
 
 public sealed record ApplicationView(long Id, string UserId, string ShopName, string City, string Status, string? RejectionReason);
 

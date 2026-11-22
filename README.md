@@ -67,6 +67,7 @@ Projet ASP.NET Core `src/Web/Souqly.Web` : les pages sont du **HTML, CSS et Java
 | Notifications | client, vendeur | US-15 |
 | Recherche tolérante aux fautes (« tapi berbre »), filtres prix et catégorie, facettes | visiteur | US-04 |
 | Vendre sur Souqly : demande de boutique, suivi, activation de l'espace vendeur | visiteur, client | US-16 |
+| Alerte de stock bas (seuil réglable par produit) et de rupture, dans les notifications | vendeur | US-12 |
 | Tableau de bord : ventes du jour, commandes à préparer, ruptures et stocks bas | vendeur | US-17 |
 | Demandes de boutique (valider, refuser avec motif), journal d'audit | administrateur | US-16, US-18 |
 

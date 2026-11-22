@@ -15,7 +15,7 @@ public sealed record StockView(long ProductId, string VendorId, int OnHand, int 
 
 public sealed record PaymentView(Guid Id, Guid OrderId, string Status, string Amount, string Currency, string? FailureReason);
 
-public sealed record NotificationView(Guid Id, string Kind, Guid OrderId, string Title, string Body, bool Read);
+public sealed record NotificationView(Guid Id, string Kind, Guid? OrderId, string Title, string Body, bool Read);
 
 public sealed record PageView<T>(IReadOnlyList<T> Content, long TotalElements);
 

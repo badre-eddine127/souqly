@@ -28,7 +28,8 @@ builder.AddSouqlyMessaging<NotificationDbContext>(m => m
     .Consume<OrderCancelled, NotificationHandlers>(Topics.OrderingEvents)
     .Consume<PaymentRefunded, NotificationHandlers>(Topics.PaymentEvents)
     .Consume<OrderShipped, NotificationHandlers>(Topics.OrderingEvents)
-    .Consume<OrderDelivered, NotificationHandlers>(Topics.OrderingEvents));
+    .Consume<OrderDelivered, NotificationHandlers>(Topics.OrderingEvents)
+    .Consume<LowStock, NotificationHandlers>(Topics.InventoryEvents));   // US-12
 builder.AddSouqlyOpenApi("Souqly Notification API");
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "notification-db", tags: ["ready"]);
 
@@ -48,7 +49,7 @@ notifications.MapGet("/", async (int? page, int? size, HttpContext http, Notific
         var total = await query.LongCountAsync(ct);
         var items = await query.OrderByDescending(n => n.CreatedAt).ThenByDescending(n => n.Id)
             .Skip(request.Skip).Take(request.Size)
-            .Select(n => new NotificationResponse(n.Id, n.Kind, n.OrderId, n.Title, n.Body, n.CreatedAt, n.ReadAt != null))
+            .Select(n => new NotificationResponse(n.Id, n.Kind, n.OrderId, n.ProductId, n.Title, n.Body, n.CreatedAt, n.ReadAt != null))
             .ToListAsync(ct);
         return TypedResults.Ok(PageResponse<NotificationResponse>.From(items, request, total));
     })
