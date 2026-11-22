@@ -394,6 +394,63 @@ main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 24
 .kpi-mini.ko strong { color: var(--ko); }
 label.check { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 
+/* Suivi de commande : camionnette de livraison qui roule le long des étapes. */
+.tracker { position: relative; padding-top: 46px; }
+.van-road { position: absolute; left: 0; right: 0; top: 14px; height: 52px; pointer-events: none; }
+.van { position: absolute; bottom: 0; width: 72px; height: 48px; transform: translateX(-50%); transition-property: left; transition-timing-function: cubic-bezier(.45, .05, .35, 1); z-index: 2; }
+.van svg { width: 100%; height: 100%; overflow: visible; }
+.van .body { fill: var(--clay); }
+.van .cab { fill: #c0693f; }
+.van .window { fill: #f3e7d4; }
+.van .stripe { fill: var(--gold); }
+.van .lamp { fill: #ffe39a; }
+.van .logo { fill: #fff; font: 700 12px var(--serif); }
+.van .parcel { fill: #d9b98a; stroke: #8a6a3f; stroke-width: 1.5; }
+.van .parcel-tape { stroke: #8a6a3f; stroke-width: 2; fill: none; }
+.van .wheel circle { fill: #2b211b; }
+.van .wheel .hub { fill: #d8cdbd; }
+.van .wheel path { stroke: #d8cdbd; stroke-width: 1.5; }
+.van.driving .wheel { animation: wheel-spin 0.45s linear infinite; }
+.van.driving .van-body { animation: van-bump 0.3s ease-in-out infinite alternate; }
+.van .smoke { position: absolute; left: -6px; bottom: 6px; width: 8px; height: 8px; border-radius: 50%; background: rgba(120, 110, 100, 0.35); opacity: 0; }
+.van.driving .smoke { animation: van-smoke 0.6s ease-out infinite; }
+/* Livrée : le colis glisse du toit et se pose sur la dernière étape. */
+.van.dropped .parcel, .van.dropped .parcel-tape { animation: parcel-drop 0.8s cubic-bezier(.5, 0, .5, 1.4) forwards; }
+.van.emptied .parcel, .van.emptied .parcel-tape { display: none; }
+.delivered-banner.quiet { animation: none; }
+.delivered-banner.quiet .confetti { display: none; }
+.timeline.arrived li:last-of-type::before { content: "✓"; background: var(--green); border-color: var(--green); color: #fff; animation: none; }
+@keyframes wheel-spin { to { transform: rotate(360deg); } }
+@keyframes van-bump { to { transform: translateY(-1.5px); } }
+@keyframes van-smoke { 0% { opacity: 0.6; transform: translate(0, 0) scale(0.6); } 100% { opacity: 0; transform: translate(-16px, -6px) scale(1.6); } }
+@keyframes parcel-drop { 40% { transform: translate(30px, -8px) rotate(12deg); } 100% { transform: translate(30px, 40px) rotate(0); opacity: 0; } }
+.delivered-banner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: -8px 0 24px; padding: 16px; border-radius: 16px;
+  background: linear-gradient(135deg, #eef2e6, #f8f1e2); color: var(--green); text-align: center; overflow: hidden; animation: banner-in 0.6s 1.2s both; }
+.delivered-banner strong { font: 700 24px var(--serif); }
+.delivered-banner span:last-child { color: var(--muted); font-size: 14px; }
+.confetti i { position: absolute; top: -10px; width: 8px; height: 12px; border-radius: 2px; background: var(--clay); animation: confetti-fall 2.4s 1.3s ease-in both; }
+.confetti i:nth-child(3n) { background: var(--gold); }
+.confetti i:nth-child(3n+1) { background: var(--green); }
+.confetti i:nth-child(1) { left: 4%; animation-delay: 1.30s; transform: rotate(0deg); }
+.confetti i:nth-child(2) { left: 11%; animation-delay: 1.42s; transform: rotate(37deg); }
+.confetti i:nth-child(3) { left: 18%; animation-delay: 1.54s; transform: rotate(74deg); }
+.confetti i:nth-child(4) { left: 25%; animation-delay: 1.66s; transform: rotate(111deg); }
+.confetti i:nth-child(5) { left: 32%; animation-delay: 1.78s; transform: rotate(148deg); }
+.confetti i:nth-child(6) { left: 39%; animation-delay: 1.30s; transform: rotate(5deg); }
+.confetti i:nth-child(7) { left: 46%; animation-delay: 1.42s; transform: rotate(42deg); }
+.confetti i:nth-child(8) { left: 53%; animation-delay: 1.54s; transform: rotate(79deg); }
+.confetti i:nth-child(9) { left: 60%; animation-delay: 1.66s; transform: rotate(116deg); }
+.confetti i:nth-child(10) { left: 67%; animation-delay: 1.78s; transform: rotate(153deg); }
+.confetti i:nth-child(11) { left: 74%; animation-delay: 1.30s; transform: rotate(10deg); }
+.confetti i:nth-child(12) { left: 81%; animation-delay: 1.42s; transform: rotate(47deg); }
+.confetti i:nth-child(13) { left: 88%; animation-delay: 1.54s; transform: rotate(84deg); }
+.confetti i:nth-child(14) { left: 95%; animation-delay: 1.66s; transform: rotate(121deg); }
+@keyframes confetti-fall { from { opacity: 1; transform: translateY(0) rotate(0); } to { opacity: 0; transform: translateY(110px) rotate(540deg); } }
+@keyframes banner-in { from { opacity: 0; transform: scale(0.94); } }
+@media (prefers-reduced-motion: reduce) {
+  .van, .van.driving .wheel, .van.driving .van-body, .van.driving .smoke, .confetti i, .delivered-banner { animation: none; transition: none; }
+}
+
 /* Espace vendeur et administration (US-16, US-17, US-18) */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
 .page-head p { margin: 0; max-width: 680px; }

@@ -2,6 +2,7 @@ import { api, get, problemMessage } from "../api.js";
 import { carrierLabel, esc, formatDate, formatMoney, isFinal, REASONS, shortId } from "../format.js";
 import { empty, pager, productVisual, statusBadge, toast } from "../ui.js";
 import { session } from "../session.js";
+import { driveVan } from "../delivery-van.js";
 
 /** US-07 : mes commandes. */
 export async function ordersPage(app, _, params) {
@@ -46,6 +47,7 @@ const PAYMENT_LABELS = { CAPTURED: "Encaissé", DECLINED: "Refusé", REFUNDED: "
 export async function orderPage(app, [id]) {
   let stopped = false;
   let timer = 0;
+  let shownStep = null;   // étape où la camionnette s'est arrêtée au dernier affichage
 
   const draw = async () => {
     const [{ data: order }, { data: payment }] = await Promise.all([get(`/api/v1/orders/${id}`), get(`/api/v1/payments/${id}`)]);
@@ -65,7 +67,8 @@ export async function orderPage(app, [id]) {
       <p class="muted">Passée le ${formatDate(order.createdAt)}</p>
       ${failed
         ? `<div class="alert alert-ko">Commande ${order.status === "CANCELLED" ? "annulée" : "refusée"}${order.statusReason ? ` : ${esc(REASONS[order.statusReason] ?? order.statusReason)}` : ""}.</div>`
-        : `<ol class="timeline">${STEPS.map((s, i) => `<li class="${i < current ? "done" : i === current ? "current" : ""}">${STEP_LABELS[i]}</li>`).join("")}</ol>`}
+        : `<div class="tracker"><ol class="timeline with-van">${STEPS.map((s, i) => `<li class="${i < current ? "done" : i === current ? "current" : ""}">${STEP_LABELS[i]}</li>`).join("")}</ol></div>
+           ${order.status === "DELIVERED" ? `<div class="delivered-banner ${shownStep === current ? "quiet" : ""}" role="status"><span class="confetti" aria-hidden="true">${"<i></i>".repeat(14)}</span><strong>Commande livrée !</strong><span>Merci d'avoir soutenu l'artisanat marocain.</span></div>` : ""}`}
       <div class="cart-layout">
         <div class="card list">
           ${order.lines
@@ -115,6 +118,13 @@ export async function orderPage(app, [id]) {
       toast("Commande annulée : remboursement en cours.");
       await draw();
     });
+
+    // La camionnette repart de l'étape déjà affichée : elle n'avance que si la commande a progressé.
+    const timeline = app.querySelector(".timeline.with-van");
+    if (timeline && current >= 0) {
+      driveVan(timeline, shownStep ?? 0, current, order.status === "DELIVERED");
+      shownStep = current;
+    }
 
     // La saga est asynchrone : on interroge toutes les secondes tant que la commande évolue, puis plus lentement.
     clearTimeout(timer);
