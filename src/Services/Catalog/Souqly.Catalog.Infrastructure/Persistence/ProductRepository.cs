@@ -87,4 +87,15 @@ internal sealed class ProductRepository(CatalogDbContext db) : IProductRepositor
             throw new ConflictException("Le produit a été modifié entre-temps ; rechargez-le et réessayez.");
         }
     }
+
+    public async Task InTransactionAsync(Func<Task> work, CancellationToken ct)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            await work();
+            await transaction.CommitAsync(ct);
+        });
+    }
 }

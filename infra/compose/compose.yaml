@@ -38,6 +38,7 @@ services:
       ORDERING_DB_PASSWORD: ${ORDERING_DB_PASSWORD}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
       NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      SEARCH_DB_PASSWORD: ${SEARCH_DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
@@ -158,6 +159,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+      kafka: { condition: service_healthy }   # événements produit (US-04)
 
   inventory:
     <<: *service-defaults
@@ -242,6 +244,23 @@ services:
       keycloak: { condition: service_healthy }
       kafka: { condition: service_healthy }
 
+  search:
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Search/Souqly.Search.Api/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-souqly}/souqly-search:${SOUQLY_VERSION:-dev}
+    environment:
+      <<: *service-env
+      ConnectionStrings__SearchDb: Host=postgres;Database=search_db;Username=search;Password=${SEARCH_DB_PASSWORD}
+      Catalog__BaseAddress: http://catalog:8080
+    healthcheck:
+      test: ["CMD", "dotnet", "Souqly.Search.Api.dll", "--healthcheck"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+
   gateway:
     <<: *service-defaults
     build:
@@ -256,6 +275,7 @@ services:
       ReverseProxy__Clusters__ordering__Destinations__d1__Address: http://ordering:8080
       ReverseProxy__Clusters__payment__Destinations__d1__Address: http://payment:8080
       ReverseProxy__Clusters__notification__Destinations__d1__Address: http://notification:8080
+      ReverseProxy__Clusters__search__Destinations__d1__Address: http://search:8080
       ConnectionStrings__Redis: redis:6379,abortConnect=false   # journal d'audit (US-18)
     healthcheck:
       test: ["CMD", "dotnet", "Souqly.ApiGateway.dll", "--healthcheck"]
@@ -269,6 +289,7 @@ services:
       ordering: { condition: service_healthy }
       payment: { condition: service_healthy }
       notification: { condition: service_healthy }
+      search: { condition: service_healthy }
 
   # Site web (HTML, CSS, JavaScript) servi par ASP.NET Core, qui gère la connexion et relaie /api vers la passerelle.
   web:

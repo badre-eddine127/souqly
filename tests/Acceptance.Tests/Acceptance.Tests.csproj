@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\Services\Payment\Souqly.Payment.Api\Souqly.Payment.Api.csproj" Aliases="payment" />
     <ProjectReference Include="..\..\src\Services\Notification\Souqly.Notification.Api\Souqly.Notification.Api.csproj" Aliases="notification" />
     <ProjectReference Include="..\..\src\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" Aliases="gateway" />
+    <ProjectReference Include="..\..\src\Services\Search\Souqly.Search.Api\Souqly.Search.Api.csproj" Aliases="search" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
     <ProjectReference Include="..\Souqly.Testing\Souqly.Testing.csproj" />
   </ItemGroup>

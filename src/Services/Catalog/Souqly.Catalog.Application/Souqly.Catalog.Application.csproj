@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Souqly.Catalog.Domain\Souqly.Catalog.Domain.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Chassis\Souqly.Chassis.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

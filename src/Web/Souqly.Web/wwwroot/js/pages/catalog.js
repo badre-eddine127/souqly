@@ -22,10 +22,33 @@ export async function catalogPage(app, _, params) {
   const q = params.get("q") ?? "";
   const sort = params.get("tri") ?? "";
   const page = Number(params.get("page") ?? 0);
+  const minPrice = params.get("prixMin") ?? "";
+  const maxPrice = params.get("prixMax") ?? "";
 
   categoriesCache ??= (await get("/api/v1/categories")).data ?? [];
   const categories = categoriesCache;
-  const result = await get(`/api/v1/products${query({ category, q, sort, page, size: 12 })}`);
+
+  // US-04 : avec un texte, la recherche passe par le service Search (tolérant aux fautes, classé par pertinence).
+  // S'il est indisponible, repli sur la recherche exacte du catalogue : le site reste utilisable (dégradation gracieuse).
+  let result;
+  let facets = null;
+  let degraded = false;
+  if (q) {
+    const search = await get(`/api/v1/search${query({ q, category, minPrice, maxPrice, page, size: 12 })}`);
+    if (search.ok) {
+      facets = search.data.facets;
+      result = {
+        ok: true,
+        data: {
+          ...search.data,
+          content: search.data.content.map((h) => ({ id: h.productId, vendorId: h.vendorId, categoryId: h.categoryId, name: h.name, description: h.description, price: h.price })),
+        },
+      };
+    } else {
+      degraded = search.status === 0 || search.status >= 500;
+    }
+  }
+  result ??= await get(`/api/v1/products${query({ category, q, sort, page, size: 12, minPrice, maxPrice })}`);
   const products = result.data?.content ?? [];
   const total = Number(result.data?.totalElements ?? 0);
   const stock = Object.fromEntries(
@@ -81,11 +104,26 @@ export async function catalogPage(app, _, params) {
           <p>${total} produit${total > 1 ? "s" : ""}${q ? ` · <button class="link" id="clear">effacer la recherche</button>` : " dans cette sélection"}</p>
         </div>
         <div class="catalog-actions">
-          <label>Trier par
+          <form class="price-filter" data-price>
+            <label>Prix (MAD)<span><input name="prixMin" type="number" min="0" step="1" inputmode="numeric" value="${esc(minPrice)}" placeholder="min" aria-label="Prix minimum" />–<input name="prixMax" type="number" min="0" step="1" inputmode="numeric" value="${esc(maxPrice)}" placeholder="max" aria-label="Prix maximum" /></span></label>
+            <button class="btn btn-ghost btn-sm">OK</button>
+          </form>
+          ${q && facets
+            ? `<span class="relevance">Classés par pertinence</span>`
+            : `<label>Trier par
             <select id="sort">${SORTS.map(([v, l]) => `<option value="${v}" ${v === sort ? "selected" : ""}>${l}</option>`).join("")}</select>
-          </label>
+          </label>`}
         </div>
       </div>
+      ${facets && facets.categories.length > 1
+        ? `<div class="facets">${facets.categories
+            .map((f) => {
+              const c = categories.find((x) => x.id === f.categoryId);
+              return `<button class="chip ${String(f.categoryId) === String(category) ? "active" : ""}" data-facet="${f.categoryId}">${esc(c?.name ?? `Catégorie ${f.categoryId}`)} <b>${f.count}</b></button>`;
+            })
+            .join("")}${category ? `<button class="chip" data-facet="">Toutes</button>` : ""}</div>`
+        : ""}
+      ${degraded ? `<div class="alert alert-info">La recherche intelligente est momentanément indisponible : résultats exacts du catalogue.</div>` : ""}
       ${!result.ok ? `<div class="alert alert-ko">${esc(result.status === 502 || result.status === 504 ? problemMessage(result.error) : "Le catalogue est indisponible pour le moment.")}</div>` : ""}
       ${result.ok && products.length === 0 ? `<div class="empty">Aucun produit trouvé. Essayez une autre recherche.</div>` : ""}
       <div class="products">
@@ -148,7 +186,13 @@ export async function catalogPage(app, _, params) {
     e.preventDefault();
     update({ q: new FormData(e.currentTarget).get("q") });
   });
-  app.querySelector("#sort").addEventListener("change", (e) => update({ tri: e.target.value }));
+  app.querySelector("#sort")?.addEventListener("change", (e) => update({ tri: e.target.value }));
+  app.querySelector("[data-price]").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    update({ prixMin: String(f.get("prixMin") ?? "").trim(), prixMax: String(f.get("prixMax") ?? "").trim() });
+  });
+  app.querySelectorAll("[data-facet]").forEach((b) => b.addEventListener("click", () => update({ categorie: b.dataset.facet })));
   app.querySelector("#clear")?.addEventListener("click", () => update({ q: "" }));
   app.querySelectorAll("[data-category]").forEach((b) => b.addEventListener("click", () => update({ categorie: b.dataset.category })));
   app.querySelectorAll("[data-page]").forEach((b) => b.addEventListener("click", () => update({ page: b.dataset.page })));

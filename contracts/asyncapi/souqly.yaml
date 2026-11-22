@@ -1,10 +1,10 @@
 asyncapi: 3.0.0
 info:
-  title: Souqly — événements de la saga de commande
-  version: 1.1.0
+  title: Souqly — événements de la saga de commande et du catalogue
+  version: 1.2.0
   description: |
     Contrat des messages Kafka échangés par les services Souqly (ADR-004, ADR-005).
-    - Clé de message : identifiant de commande (UUID) ; tous les événements d'une commande sont dans la même partition, donc ordonnés.
+    - Clé de message : identifiant de l'agrégat (commande : UUID ; produit : entier) ; tous ses événements sont dans la même partition, donc ordonnés.
     - Valeur : JSON (camelCase). En-têtes : message-id (UUID, sert à l'idempotence), message-type, occurred-at (ISO 8601), traceparent (W3C).
     - Livraison « au moins une fois » : chaque consommateur ignore un message-id déjà traité (table inbox_messages).
     - Après 3 échecs, le message est copié dans le topic `<topic>.dlq`.
@@ -41,8 +41,21 @@ channels:
       PaymentSucceeded: { $ref: '#/components/messages/PaymentSucceeded' }
       PaymentFailed: { $ref: '#/components/messages/PaymentFailed' }
       PaymentRefunded: { $ref: '#/components/messages/PaymentRefunded' }
+  productEvents:
+    address: souqly.catalog.product-events.v1
+    description: Publié par Catalog (US-04). Clé = identifiant du produit. Chaque message porte l'état complet du produit.
+    messages:
+      ProductCreated: { $ref: '#/components/messages/ProductCreated' }
+      ProductUpdated: { $ref: '#/components/messages/ProductUpdated' }
+      ProductArchived: { $ref: '#/components/messages/ProductArchived' }
 
 operations:
+  catalog-publishes:
+    action: send
+    channel: { $ref: '#/channels/productEvents' }
+  search-receives-products:
+    action: receive
+    channel: { $ref: '#/channels/productEvents' }
   ordering-publishes:
     action: send
     channel: { $ref: '#/channels/orderEvents' }
@@ -111,6 +124,21 @@ components:
   schemas:
     OrderId: { type: string, format: uuid }
     Amount: { type: number, multipleOf: 0.01, minimum: 0.01, description: Montant en MAD }
+    ProductSnapshot:
+      type: object
+      description: État d'un produit. Un consommateur ignore une version plus ancienne (updatedAt) que celle qu'il connaît.
+      required: [productId, vendorId, categoryId, sku, name, description, price, currency, status, updatedAt]
+      properties:
+        productId: { type: integer, format: int64 }
+        vendorId: { type: string, description: sub Keycloak du vendeur }
+        categoryId: { type: integer, format: int64 }
+        sku: { type: string }
+        name: { type: string }
+        description: { type: string }
+        price: { $ref: '#/components/schemas/Amount' }
+        currency: { type: string, const: MAD }
+        status: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
+        updatedAt: { type: string, format: date-time }
     OrderLine:
       type: object
       required: [productId, vendorId, productName, unitPrice, quantity]
@@ -245,3 +273,27 @@ components:
           paymentId: { type: string, format: uuid }
           amount: { $ref: '#/components/schemas/Amount' }
           currency: { type: string, const: MAD }
+    ProductCreated:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Produit créé (brouillon ou directement en vente).
+      payload:
+        type: object
+        required: [product]
+        properties:
+          product: { $ref: '#/components/schemas/ProductSnapshot' }
+    ProductUpdated:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Produit modifié ou publié.
+      payload:
+        type: object
+        required: [product]
+        properties:
+          product: { $ref: '#/components/schemas/ProductSnapshot' }
+    ProductArchived:
+      traits: [{ $ref: '#/components/messageTraits/souqly' }]
+      summary: Produit archivé (retiré de la vente et de la recherche).
+      payload:
+        type: object
+        required: [product]
+        properties:
+          product: { $ref: '#/components/schemas/ProductSnapshot' }

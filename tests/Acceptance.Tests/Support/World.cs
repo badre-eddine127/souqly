@@ -128,3 +128,11 @@ public sealed record ShopView(string VendorId, string ShopName, string City);
 public sealed record DashboardView(int OrdersToday, int UnitsSoldToday, MoneyView SalesToday, int AwaitingPaymentToday, int ToPrepareCount);
 
 public sealed record AuditView(DateTimeOffset At, string UserId, string? Username, IReadOnlyList<string> Roles, string Method, string Path, int Status);
+
+public sealed record SearchHitView(long ProductId, string Name, long CategoryId, MoneyView Price, double Score);
+
+public sealed record SearchFacetView(long CategoryId, int Count);
+
+public sealed record SearchFacetsView(IReadOnlyList<SearchFacetView> Categories);
+
+public sealed record SearchView(IReadOnlyList<SearchHitView> Content, long TotalElements, SearchFacetsView Facets);

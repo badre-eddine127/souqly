@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\Services\Ordering\Souqly.Ordering.Api\Souqly.Ordering.Api.csproj" />
     <ProjectReference Include="..\..\Services\Payment\Souqly.Payment.Api\Souqly.Payment.Api.csproj" />
     <ProjectReference Include="..\..\Services\Notification\Souqly.Notification.Api\Souqly.Notification.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Search\Souqly.Search.Api\Souqly.Search.Api.csproj" />
     <ProjectReference Include="..\..\Services\ApiGateway\Souqly.ApiGateway\Souqly.ApiGateway.csproj" />
     <ProjectReference Include="..\..\Web\Souqly.Web\Souqly.Web.csproj" />
   </ItemGroup>

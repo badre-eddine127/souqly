@@ -5,7 +5,7 @@ extern alias inventory;
 extern alias notification;
 extern alias ordering;
 extern alias payment;
-
+extern alias search;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
@@ -53,6 +53,7 @@ public sealed class Platform : IAsyncDisposable
     internal Host<payment::Program> Payment { get; private set; } = null!;
     internal Host<notification::Program> Notification { get; private set; } = null!;
     internal Host<gateway::Program> Gateway { get; private set; } = null!;
+    internal Host<search::Program> Search { get; private set; } = null!;
 
     /// <summary>Utilisateurs à qui Catalog a fait attribuer le rôle VENDOR (à la place de l'API d'administration Keycloak).</summary>
     public ConcurrentBag<string> GrantedVendors { get; } = [];
@@ -90,6 +91,13 @@ public sealed class Platform : IAsyncDisposable
             s["ServiceAccount:ClientSecret"] = "acceptance-secret";
         }, routeToCatalog: true));
 
+        // US-04 : alimenté par les événements de Catalog (broker en mémoire), réconcilié au démarrage avec la liste de Catalog.
+        Search = Track(new Host<search::Program>(this, async s =>
+        {
+            s["ConnectionStrings:SearchDb"] = await _postgres.CreateDatabaseAsync("search");
+            s["Catalog:BaseAddress"] = $"http://{CatalogHost}";
+        }, routeToCatalog: true));
+
         Gateway = Track(new Host<gateway::Program>(this, s =>
         {
             foreach (var cluster in GatewayRouter.Clusters)
@@ -105,7 +113,7 @@ public sealed class Platform : IAsyncDisposable
         });
 
         // Le premier client démarre chaque hôte (migrations, consommateurs, publieur d'outbox).
-        foreach (var host in new IHost[] { Catalog, Cart, Inventory, Payment, Notification, Ordering, Gateway })
+        foreach (var host in new IHost[] { Catalog, Cart, Inventory, Payment, Notification, Ordering, Search, Gateway })
         {
             await host.StartAsync();
         }
@@ -247,7 +255,7 @@ public sealed class Platform : IAsyncDisposable
     /// <summary>Le « réseau » de la passerelle : chaque cluster YARP est relié au service hébergé en mémoire.</summary>
     private sealed class GatewayRouter(Platform platform) : IForwarderHttpClientFactory
     {
-        public static readonly string[] Clusters = ["catalog", "inventory", "cart", "ordering", "payment", "notification"];
+        public static readonly string[] Clusters = ["catalog", "inventory", "cart", "ordering", "payment", "notification", "search"];
 
         public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context) => new(new Router(platform), disposeHandler: true);
 
@@ -263,6 +271,7 @@ public sealed class Platform : IAsyncDisposable
                     "ordering.gateway" => platform.Ordering.Server.CreateHandler(),
                     "payment.gateway" => platform.Payment.Server.CreateHandler(),
                     "notification.gateway" => platform.Notification.Server.CreateHandler(),
+                    "search.gateway" => platform.Search.Server.CreateHandler(),
                     var host => throw new InvalidOperationException($"Destination inconnue : {host}"),
                 };
                 return new HttpMessageInvoker(target).SendAsync(request, cancellationToken);

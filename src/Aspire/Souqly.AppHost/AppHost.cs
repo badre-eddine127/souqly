@@ -15,6 +15,7 @@ IResourceBuilder<IResourceWithConnectionString> inventoryDb;
 IResourceBuilder<IResourceWithConnectionString> orderDb;
 IResourceBuilder<IResourceWithConnectionString> paymentDb;
 IResourceBuilder<IResourceWithConnectionString> notificationDb;
+IResourceBuilder<IResourceWithConnectionString> searchDb;
 IResourceBuilder<IResourceWithConnectionString> redis;
 IResourceBuilder<IResourceWithConnectionString> kafka;
 
@@ -33,6 +34,7 @@ if (useExistingInfrastructure)
     orderDb = builder.AddConnectionString("OrderDb");
     paymentDb = builder.AddConnectionString("PaymentDb");
     notificationDb = builder.AddConnectionString("NotificationDb");
+    searchDb = builder.AddConnectionString("SearchDb");
     kafka = builder.AddConnectionString("Kafka");
     redis = builder.AddConnectionString("Redis");
 }
@@ -48,6 +50,7 @@ else
     orderDb = postgres.AddDatabase("OrderDb", databaseName: "ordering_db");
     paymentDb = postgres.AddDatabase("PaymentDb", databaseName: "payment_db");
     notificationDb = postgres.AddDatabase("NotificationDb", databaseName: "notification_db");
+    searchDb = postgres.AddDatabase("SearchDb", databaseName: "search_db");
 
     // Kafka en mode KRaft (sans ZooKeeper) + Kafka UI pour voir passer les événements de la saga.
     kafka = builder.AddKafka("Kafka")
@@ -91,6 +94,8 @@ var grafana = useExistingInfrastructure ? null : builder.AddContainer("grafana",
 var catalog = builder.AddProject<Projects.Souqly_Catalog_Api>("catalog")
     .WithReference(catalogDb)
     .WaitFor(catalogDb)
+    .WithReference(kafka)   // US-04 : publie les événements produit (outbox)
+    .WaitFor(kafka)
     .WithEnvironment("KeycloakAdmin__BaseAddress", "http://localhost:8180")
     .WithEnvironment("KeycloakAdmin__ClientSecret", catalogSecret)
     .WithHttpHealthCheck("/health/ready");
@@ -133,10 +138,20 @@ var notification = builder.AddProject<Projects.Souqly_Notification_Api>("notific
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health/ready");
 
+// US-04 : modèle de lecture de recherche, alimenté par les événements produit de Catalog (réconcilié au démarrage).
+var search = builder.AddProject<Projects.Souqly_Search_Api>("search")
+    .WithReference(searchDb)
+    .WaitFor(searchDb)
+    .WithReference(kafka)
+    .WaitFor(kafka)
+    .WaitFor(catalog)
+    .WithEnvironment("Catalog__BaseAddress", catalog.GetEndpoint("http"))
+    .WithHttpHealthCheck("/health/ready");
+
 // Chaque service envoie aussi ses traces, métriques et logs à Grafana (en plus du tableau de bord Aspire).
 if (grafana is not null)
 {
-    foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification })
+    foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification, search })
     {
         service.WithEnvironment("Telemetry__GrafanaEndpoint", grafana.GetEndpoint("otlp"));
     }
@@ -155,13 +170,13 @@ if (keycloak is not null)
                 .GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(e.Services).CreateLogger("Souqly.KeycloakBootstrap"),
             ct));
 
-    foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification })
+    foreach (var service in new[] { catalog, inventory, cart, ordering, payment, notification, search })
     {
         service.WaitFor(keycloak);
     }
 }
 
-// La passerelle est le seul point d'entrée : elle attend que les six services soient sains.
+// La passerelle est le seul point d'entrée : elle attend que les sept services soient sains.
 var gateway = builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
     .WithReference(redis)   // US-18 : journal d'audit partagé
     .WaitFor(redis)
@@ -171,12 +186,14 @@ var gateway = builder.AddProject<Projects.Souqly_ApiGateway>("gateway")
     .WithEnvironment("ReverseProxy__Clusters__ordering__Destinations__d1__Address", ordering.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__payment__Destinations__d1__Address", payment.GetEndpoint("http"))
     .WithEnvironment("ReverseProxy__Clusters__notification__Destinations__d1__Address", notification.GetEndpoint("http"))
+    .WithEnvironment("ReverseProxy__Clusters__search__Destinations__d1__Address", search.GetEndpoint("http"))
     .WaitFor(catalog)
     .WaitFor(inventory)
     .WaitFor(cart)
     .WaitFor(ordering)
     .WaitFor(payment)
     .WaitFor(notification)
+    .WaitFor(search)
     .WithHttpHealthCheck("/health/ready")
     .WithExternalHttpEndpoints()
     .WithUrlForEndpoint("http", url =>

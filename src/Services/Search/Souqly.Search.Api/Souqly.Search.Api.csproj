@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Service simple (ADR-013) : modèle de lecture de recherche (CQRS, US-04), alimenté par les événements de Catalog. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Chassis\Souqly.Chassis.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Souqly.Messaging\Souqly.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Search.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -130,7 +130,7 @@ public sealed class CatalogSteps(World world)
     private async Task<PageView<ProductView>> SearchAsync() =>
         (await world.Platform.Catalog.Anonymous().GetFromJsonAsync<PageView<ProductView>>($"/api/v1/products?q={world.Token}&size=100", World.Json))!;
 
-    private async Task CreateProductAsync(string vendor, string name, decimal price, string category, bool publish, bool expectSuccess)
+    internal async Task CreateProductAsync(string vendor, string name, decimal price, string category, bool publish, bool expectSuccess)
     {
         var sku = "SKU-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         var response = await world.Platform.Catalog.As(world.User(vendor), "VENDOR")

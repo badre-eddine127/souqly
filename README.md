@@ -14,8 +14,10 @@ flowchart TB
     gw --> inventory[Inventory · PostgreSQL]
     gw --> cart[Cart · Redis]
     gw --> ordering[Ordering · saga]
+    gw --> search[Search · PostgreSQL pg_trgm]
     catalog & inventory & ordering --- kafka[(Kafka KRaft)]
-    kafka --- payment[Payment] & notification[Notification] & shipping[Shipping]
+    kafka -- événements produit --> search
+    kafka --- payment[Payment] & notification[Notification]
 ```
 
 | Service | Rôle | Stockage | État |
@@ -29,8 +31,9 @@ flowchart TB
 | Keycloak | Connexion OIDC, rôles, comptes de service ([ADR-003](docs/adr/ADR-003-identite-keycloak.md)) | — | Sprint 2 |
 | `Payment` | Paiement simulé (plafond 10 000 MAD), remboursement | PostgreSQL (`payment_db`) | Sprint 3 |
 | `Notification` | Messages au client et aux vendeurs | PostgreSQL (`notification_db`) | Sprint 3 |
+| `Search` | Recherche tolérante aux fautes, filtres, facettes (CQRS, [ADR-015](docs/adr/ADR-015-recherche-postgresql-trigrammes.md)) | PostgreSQL (`search_db`) | Sprint 4 |
 | Kafka (KRaft) | Saga de commande : outbox, inbox, DLQ ([ADR-004](docs/adr/ADR-004-kafka-outbox-inbox.md), [ADR-005](docs/adr/ADR-005-saga-orchestree.md)) | — | Sprint 3 |
-| `Shipping`, `Search` | Niveau Pro | PostgreSQL, OpenSearch | Sprint 4 |
+| Expédition et suivi | Colis par vendeur et transporteur simulé, gérés par `Ordering` (US-13, US-14) | PostgreSQL (`ordering_db`) | Sprint 4 |
 
 ## Prérequis
 
@@ -62,6 +65,7 @@ Projet ASP.NET Core `src/Web/Souqly.Web` : les pages sont du **HTML, CSS et Java
 | Mes commandes, suivi (rafraîchi toutes les secondes), annulation, colis | client | US-07, US-08, US-14 |
 | Mes produits, mon stock, commandes à préparer et expédition | vendeur | US-03, US-10, US-13 |
 | Notifications | client, vendeur | US-15 |
+| Recherche tolérante aux fautes (« tapi berbre »), filtres prix et catégorie, facettes | visiteur | US-04 |
 | Vendre sur Souqly : demande de boutique, suivi, activation de l'espace vendeur | visiteur, client | US-16 |
 | Tableau de bord : ventes du jour, commandes à préparer, ruptures et stocks bas | vendeur | US-17 |
 | Demandes de boutique (valider, refuser avec motif), journal d'audit | administrateur | US-16, US-18 |

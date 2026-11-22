@@ -34,6 +34,7 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
         });
         builder.UseSetting("ConnectionStrings:CatalogDb", _postgres.ConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
+        builder.UseSetting("Messaging:Transport", "InMemory");   // les événements produit restent en mémoire
     }
 
     /// <summary>Client HTTP authentifié par un JWT de test (format Keycloak) avec l'identité et les rôles donnés.</summary>

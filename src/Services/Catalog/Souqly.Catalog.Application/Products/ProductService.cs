@@ -2,11 +2,12 @@ using Souqly.Catalog.Domain.Products;
 using Souqly.Chassis.Errors;
 using Souqly.Chassis.Paging;
 using Souqly.Chassis.Security;
+using Souqly.Messaging;
 
 namespace Souqly.Catalog.Application.Products;
 
 /// <summary>Cas d'usage du catalogue (US-01, US-02, US-03).</summary>
-public sealed class ProductService(IProductRepository products, TimeProvider clock)
+public sealed class ProductService(IProductRepository products, IEventPublisher events, TimeProvider clock)
 {
     /// <summary>US-01 : catalogue public paginé, filtré par catégorie, prix et texte, trié.</summary>
     public async Task<PageResponse<ProductResponse>> SearchAsync(ProductQuery query, CancellationToken ct)
@@ -57,8 +58,14 @@ public sealed class ProductService(IProductRepository products, TimeProvider clo
             product.Publish(now);
         }
 
-        products.Add(product);
-        await products.SaveChangesAsync(ct);
+        // L'identifiant n'existe qu'après l'insertion : produit puis événement, dans une même transaction (outbox).
+        await products.InTransactionAsync(async () =>
+        {
+            products.Add(product);
+            await products.SaveChangesAsync(ct);
+            events.Created(product);
+            await products.SaveChangesAsync(ct);
+        }, ct);
         return ProductResponse.From(product);
     }
 
@@ -84,6 +91,7 @@ public sealed class ProductService(IProductRepository products, TimeProvider clo
 
             return product;
         });
+        events.Updated(product);   // enregistré dans l'outbox par le même SaveChanges que le produit
         await products.SaveChangesAsync(ct);
         return ProductResponse.From(product);
     }
@@ -93,6 +101,7 @@ public sealed class ProductService(IProductRepository products, TimeProvider clo
     {
         var product = await FindOwnedAsync(id, vendor, ct);
         product.Archive(clock.GetUtcNow());
+        events.Archived(product);
         await products.SaveChangesAsync(ct);
     }
 

@@ -7,6 +7,7 @@ using Souqly.Catalog.Application.Vendors;
 using Souqly.Catalog.Infrastructure;
 using Souqly.Catalog.Infrastructure.Persistence;
 using Souqly.Chassis;
+using Souqly.Messaging;
 
 if (await Souqly.Chassis.HealthProbe.TryRunAsync(args))
 {
@@ -17,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddSouqlyDefaults();
 builder.Services.AddCatalogInfrastructure(builder.Configuration);
+// US-04 : outbox des événements produit, publiés sur Kafka pour le service Search (aucun abonnement).
+builder.AddSouqlyMessaging<CatalogDbContext>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<VendorService>();
 builder.Services.AddSingleton(TimeProvider.System);

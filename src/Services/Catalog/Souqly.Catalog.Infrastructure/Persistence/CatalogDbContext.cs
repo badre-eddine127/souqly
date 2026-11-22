@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Souqly.Catalog.Domain.Categories;
 using Souqly.Catalog.Domain.Products;
 using Souqly.Catalog.Domain.Vendors;
+using Souqly.Messaging;
 
 namespace Souqly.Catalog.Infrastructure.Persistence;
 
@@ -14,6 +15,9 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<VendorApplication> VendorApplications => Set<VendorApplication>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.AddMessagingTables();   // outbox des événements produit (US-04)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CatalogDbContext).Assembly);
+    }
 }

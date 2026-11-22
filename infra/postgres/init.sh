@@ -17,3 +17,4 @@ create_db inventory "${INVENTORY_DB_PASSWORD:?}"
 create_db ordering "${ORDERING_DB_PASSWORD:?}"
 create_db payment "${PAYMENT_DB_PASSWORD:?}"
 create_db notification "${NOTIFICATION_DB_PASSWORD:?}"
+create_db search "${SEARCH_DB_PASSWORD:?}"   # US-04 (pg_trgm : extension « trusted », créée par le propriétaire de la base)

@@ -20,6 +20,9 @@ public interface IProductRepository
     void Add(Product product);
 
     Task SaveChangesAsync(CancellationToken ct);
+
+    /// <summary>Exécute <paramref name="work"/> dans une transaction (produit et message d'outbox enregistrés ensemble).</summary>
+    Task InTransactionAsync(Func<Task> work, CancellationToken ct);
 }
 
 /// <summary>Critères de recherche du catalogue public ou de l'espace vendeur.</summary>

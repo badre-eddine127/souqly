@@ -357,6 +357,18 @@ main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 24
   .flip3d-inner { transition: none; }
 }
 
+/* Recherche (US-04) : fourchette de prix, facettes par catégorie. */
+.catalog-actions { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.price-filter { display: flex; align-items: flex-end; gap: 8px; }
+.price-filter label span { display: flex; align-items: center; gap: 6px; }
+.price-filter input { width: 88px; }
+.btn-sm { padding: 8px 14px; font-size: 13px; }
+.relevance { font-size: 13px; font-weight: 700; color: var(--green); padding-bottom: 10px; }
+.facets { display: flex; flex-wrap: wrap; gap: 8px; margin: -6px 0 18px; }
+.facets .chip b { margin-left: 4px; font-weight: 800; color: var(--clay-dark); }
+.facets .chip.active b { color: inherit; }
+.alert-info { background: #eef2e6; color: var(--green); }
+
 /* Espace vendeur et administration (US-16, US-17, US-18) */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
 .page-head p { margin: 0; max-width: 680px; }
