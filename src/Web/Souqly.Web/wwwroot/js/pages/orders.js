@@ -1,6 +1,7 @@
 import { api, get, problemMessage } from "../api.js";
 import { carrierLabel, esc, formatDate, formatMoney, isFinal, REASONS, shortId } from "../format.js";
 import { empty, pager, productVisual, statusBadge, toast } from "../ui.js";
+import { session } from "../session.js";
 
 /** US-07 : mes commandes. */
 export async function ordersPage(app, _, params) {
@@ -73,7 +74,7 @@ export async function orderPage(app, [id]) {
                 ${productVisual(l.productName, 0, "sm")}
                 <div class="grow">
                   <a href="/produits/${l.productId}" data-link><strong>${esc(l.productName)}</strong></a>
-                  <div class="muted small">${l.quantity} × ${formatMoney(l.unitPrice.amount)} · vendu par ${esc(l.vendorId)}</div>
+                  <div class="muted small">${l.quantity} × ${formatMoney(l.unitPrice.amount)} · vendu par ${esc(session.vendor(l.vendorId).name)}</div>
                 </div>
                 <div class="line-total">${formatMoney(l.lineTotal.amount)}</div>
               </div>`)
